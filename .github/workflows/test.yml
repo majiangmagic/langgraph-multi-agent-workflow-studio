@@ -1,0 +1,108 @@
+name: Python Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+  JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
+  DATABASE_SCHEMA: public
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        # Health check to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Install additional test dependencies
+          pip install pytest-asyncio pytest-cov aiosqlite asyncpg aiohttp langchain langchain-core langchain-openai
+          # Install langgraph dependencies
+          pip install langgraph "langchain-mcp-adapters>=0.0.3" openrouter
+          # Show installed packages for debugging
+          pip list | grep -E 'sqlalchemy|asyncpg|aiosqlite|pytest|aiohttp|langchain|openrouter'
+      
+      - name: Set up test environment
+        run: |
+          # Create a clean .env.test file instead of appending to avoid variable concatenation issues
+          cat > .env.test << EOL
+          DATABASE_URL=${{ env.DATABASE_URL }}
+          DATABASE_SCHEMA=${{ env.DATABASE_SCHEMA }}
+          DEBUG=true
+          OPENROUTER_API_KEY=test-key
+          JWT_SECRET_KEY=test-secret-key
+          JWT_ALGORITHM=HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES=60
+          REFRESH_TOKEN_EXPIRE_DAYS=7
+          EOL
+          
+          # Show the content for debugging (redact sensitive values)
+          cat .env.test | grep -v "KEY\|TOKEN" || true
+      
+      - name: Create database schema
+        run: |
+          python -c "
+          import asyncio
+          import os
+          from sqlalchemy.ext.asyncio import create_async_engine
+          from app.db.base import Base
+          
+          async def create_tables():
+              database_url = os.environ.get('DATABASE_URL')
+              print(f'Using database URL: {database_url}')
+              engine = create_async_engine(database_url, echo=True)
+              async with engine.begin() as conn:
+                  await conn.run_sync(Base.metadata.create_all)
+          
+          asyncio.run(create_tables())
+          "
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DATABASE_SCHEMA: ${{ env.DATABASE_SCHEMA }}
+      
+      - name: Run tests
+        run: |
+          pytest -xvs --cov=app --cov-report=xml
+        env:
+          # Set necessary environment variables for tests
+          OPENROUTER_API_KEY: ${{ env.OPENROUTER_API_KEY || 'test-key' }}
+          JWT_SECRET_KEY: ${{ env.JWT_SECRET_KEY || 'test-secret-key' }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DATABASE_SCHEMA: ${{ env.DATABASE_SCHEMA }}
+          JWT_ALGORITHM: "HS256"
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
