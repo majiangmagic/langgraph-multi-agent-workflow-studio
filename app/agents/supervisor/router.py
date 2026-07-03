@@ -1,7 +1,7 @@
 """Routing helpers for the supervisor agent."""
 
-from app.agents.supervisor.state import (
-    SupervisorAction,
+from app.agents.supervisor.state import SupervisorAction
+from app.core.langgraph.workflows.supervisor_simple.state import (
     SupervisorState,
 )
 

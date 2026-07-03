@@ -6,8 +6,8 @@ from typing import Any, Dict
 from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agents.supervisor import supervisor_agent
-from app.agents.supervisor.state import (
-    SupervisorAction,
+from app.agents.supervisor.state import SupervisorAction
+from app.core.langgraph.workflows.supervisor_simple.state import (
     SupervisorState,
 )
 

@@ -13,8 +13,8 @@ from app.agents.supervisor.nodes import (
     create_plan,
 )
 from app.agents.supervisor.router import route_by_action
-from app.agents.supervisor.state import (
-    SupervisorAction,
+from app.agents.supervisor.state import SupervisorAction
+from app.core.langgraph.workflows.supervisor_simple.state import (
     SupervisorState,
 )
 from app.core.langgraph.workflows.registry import workflow_registry
