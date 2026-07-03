@@ -1,12 +1,11 @@
-"""Graph factory for the supervisor workflow."""
+"""Graph factory for the orchestrated workflow."""
 
 import uuid
 from typing import Dict, List
 
 from langgraph.graph import END, StateGraph
 
-from app.core.langgraph.workflows.registry import workflow_registry
-from app.core.langgraph.workflows.supervisor.nodes import (
+from app.core.langgraph.workflows.orchestrated.nodes import (
     analyze_input,
     answer_directly,
     assign_tasks,
@@ -14,13 +13,16 @@ from app.core.langgraph.workflows.supervisor.nodes import (
     combine_results,
     create_plan,
 )
-from app.core.langgraph.workflows.supervisor.prompts import DEFAULT_SUPERVISOR_PROMPT_TEMPLATE
-from app.core.langgraph.workflows.supervisor.router import route_by_action
-from app.core.langgraph.workflows.supervisor.state import SupervisorAction, SupervisorState
+from app.core.langgraph.workflows.orchestrated.router import route_by_action
+from app.core.langgraph.workflows.orchestrated.state import (
+    OrchestratedAction,
+    OrchestratedState,
+)
+from app.core.langgraph.workflows.registry import workflow_registry
 
 
-def build_initial_state(crew_id: str, agents: List[Dict]) -> SupervisorState:
-    """Build the initial state for a supervisor-coordinated crew."""
+def build_initial_state(crew_id: str, agents: List[Dict]) -> OrchestratedState:
+    """Build the initial state for an orchestrated crew."""
 
     agent_states = {}
     for agent_config in agents:
@@ -45,20 +47,10 @@ def build_initial_state(crew_id: str, agents: List[Dict]) -> SupervisorState:
     }
 
 
-def create_supervisor_graph(crew_id: str, agents: List[Dict], system_prompt: str = None):
-    """Create a compiled LangGraph for a supervisor-coordinated agent crew."""
+def create_orchestrated_graph(crew_id: str, agents: List[Dict], system_prompt: str = None):
+    """Create a compiled LangGraph for an orchestrated agent crew."""
 
-    if not system_prompt:
-        DEFAULT_SUPERVISOR_PROMPT_TEMPLATE.format(
-            agent_descriptions="\n".join(
-                [
-                    f"- {agent['name']}: {agent.get('description', 'No description')}"
-                    for agent in agents
-                ]
-            )
-        )
-
-    workflow = StateGraph(SupervisorState)
+    workflow = StateGraph(OrchestratedState)
 
     workflow.add_node("analyze_input", analyze_input)
     workflow.add_node("answer_directly", answer_directly)
@@ -71,8 +63,8 @@ def create_supervisor_graph(crew_id: str, agents: List[Dict], system_prompt: str
         "analyze_input",
         route_by_action,
         {
-            SupervisorAction.ANSWER_DIRECTLY: "answer_directly",
-            SupervisorAction.CREATE_PLAN: "create_plan",
+            OrchestratedAction.ANSWER_DIRECTLY: "answer_directly",
+            OrchestratedAction.CREATE_PLAN: "create_plan",
         },
     )
     workflow.add_edge("create_plan", "assign_tasks")
@@ -81,9 +73,9 @@ def create_supervisor_graph(crew_id: str, agents: List[Dict], system_prompt: str
         "check_status",
         route_by_action,
         {
-            SupervisorAction.ASSIGN_TASKS: "assign_tasks",
-            SupervisorAction.CHECK_STATUS: "check_status",
-            SupervisorAction.COMBINE_RESULTS: "combine_results",
+            OrchestratedAction.ASSIGN_TASKS: "assign_tasks",
+            OrchestratedAction.CHECK_STATUS: "check_status",
+            OrchestratedAction.COMBINE_RESULTS: "combine_results",
         },
     )
     workflow.add_edge("answer_directly", END)
@@ -93,4 +85,5 @@ def create_supervisor_graph(crew_id: str, agents: List[Dict], system_prompt: str
     return workflow.compile()
 
 
-workflow_registry.register("supervisor", create_supervisor_graph)
+workflow_registry.register("orchestrated", create_orchestrated_graph)
+workflow_registry.register("supervisor", create_orchestrated_graph)

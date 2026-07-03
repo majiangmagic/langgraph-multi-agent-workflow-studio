@@ -1,43 +1,25 @@
-"""Node implementations for the supervisor workflow."""
+"""Node implementations for the orchestrated workflow."""
 
 import json
 from typing import Any, Dict
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
-from app.core.langgraph.workflows.supervisor.prompts import (
-    AGENT_TASK_PROMPT_TEMPLATE,
-    ANALYZE_INPUT_PROMPT,
-    COMBINE_RESULTS_PROMPT,
-    DIRECT_ANSWER_PROMPT,
-    PLAN_PROMPT_TEMPLATE,
+from app.agents.supervisor import supervisor_agent
+from app.core.langgraph.workflows.orchestrated.state import (
+    OrchestratedAction,
+    OrchestratedState,
 )
-from app.core.langgraph.workflows.supervisor.state import SupervisorAction, SupervisorState
-from app.services.ai_provider import ai_provider
 
 
-def _model(model_name: str):
-    return ai_provider.get_model(model_name)
-
-
-def analyze_input(state: SupervisorState) -> Dict[str, Any]:
-    """Decide whether the supervisor can answer directly or needs a plan."""
+def analyze_input(state: OrchestratedState) -> Dict[str, Any]:
+    """Use the supervisor agent to choose the next workflow action."""
 
     user_input = state["user_input"]
     if not user_input:
         return state
 
-    response = _model("gpt-4-turbo").invoke(
-        [
-            SystemMessage(content=ANALYZE_INPUT_PROMPT),
-            HumanMessage(content=user_input),
-        ]
-    )
-
-    action = SupervisorAction.CREATE_PLAN
-    if "ACTION: ANSWER_DIRECTLY" in response.content.upper():
-        action = SupervisorAction.ANSWER_DIRECTLY
-
+    action = OrchestratedAction(supervisor_agent.decide_action(user_input))
     return {
         **state,
         "messages": state["messages"] + [HumanMessage(content=user_input)],
@@ -45,13 +27,10 @@ def analyze_input(state: SupervisorState) -> Dict[str, Any]:
     }
 
 
-def answer_directly(state: SupervisorState) -> Dict[str, Any]:
-    """Generate a direct response without delegating to other agents."""
+def answer_directly(state: OrchestratedState) -> Dict[str, Any]:
+    """Use the supervisor agent to answer without delegation."""
 
-    response = _model("gpt-4-turbo").invoke(
-        [SystemMessage(content=DIRECT_ANSWER_PROMPT), *state["messages"]]
-    )
-
+    response = supervisor_agent.answer_directly(state["messages"])
     return {
         **state,
         "messages": state["messages"] + [response],
@@ -59,46 +38,30 @@ def answer_directly(state: SupervisorState) -> Dict[str, Any]:
     }
 
 
-def create_plan(state: SupervisorState) -> Dict[str, Any]:
-    """Create a JSON execution plan for the available agents."""
+def create_plan(state: OrchestratedState) -> Dict[str, Any]:
+    """Use the supervisor agent to create a JSON execution plan."""
 
     agent_names = [agent["agent_name"] for agent in state["agents"].values()]
-    prompt = PLAN_PROMPT_TEMPLATE.format(agent_names=", ".join(agent_names))
-    response = _model("gpt-4-turbo").invoke(
-        [
-            SystemMessage(content=prompt),
-            HumanMessage(content=state["user_input"] or ""),
-        ]
-    )
 
     try:
-        content = response.content
-        if "```json" in content and "```" in content.split("```json", 1)[1]:
-            json_str = content.split("```json", 1)[1].split("```", 1)[0]
-        elif "```" in content and "```" in content.split("```", 1)[1]:
-            json_str = content.split("```", 1)[1].split("```", 1)[0]
-        else:
-            json_str = content
-
-        plan = json.loads(json_str)
+        plan = supervisor_agent.create_plan(state["user_input"] or "", agent_names)
         plan_message = f"Plan created with {len(plan['steps'])} steps to achieve: {plan['goal']}"
-
         return {
             **state,
             "messages": state["messages"] + [AIMessage(content=plan_message)],
             "plan": plan,
-            "action": SupervisorAction.ASSIGN_TASKS,
+            "action": OrchestratedAction.ASSIGN_TASKS,
         }
     except (json.JSONDecodeError, KeyError) as exc:
         return {
             **state,
             "messages": state["messages"]
             + [AIMessage(content=f"Failed to create a valid plan: {str(exc)}")],
-            "action": SupervisorAction.ANSWER_DIRECTLY,
+            "action": OrchestratedAction.ANSWER_DIRECTLY,
         }
 
 
-def assign_tasks(state: SupervisorState) -> Dict[str, Any]:
+def assign_tasks(state: OrchestratedState) -> Dict[str, Any]:
     """Assign the next pending plan step to an idle agent."""
 
     plan = state["plan"]
@@ -126,9 +89,9 @@ def assign_tasks(state: SupervisorState) -> Dict[str, Any]:
         return {
             **state,
             "agents": updated_agents,
-            "action": SupervisorAction.COMBINE_RESULTS
+            "action": OrchestratedAction.COMBINE_RESULTS
             if all_complete
-            else SupervisorAction.CHECK_STATUS,
+            else OrchestratedAction.CHECK_STATUS,
         }
 
     agent_name = next_step["agent"]
@@ -142,13 +105,14 @@ def assign_tasks(state: SupervisorState) -> Dict[str, Any]:
 
     return {
         **state,
-        "messages": state["messages"] + [AIMessage(content=f"Assigned task to {agent_name}: {task}")],
+        "messages": state["messages"]
+        + [AIMessage(content=f"Assigned task to {agent_name}: {task}")],
         "agents": updated_agents,
-        "action": SupervisorAction.CHECK_STATUS,
+        "action": OrchestratedAction.CHECK_STATUS,
     }
 
 
-def check_status(state: SupervisorState) -> Dict[str, Any]:
+def check_status(state: OrchestratedState) -> Dict[str, Any]:
     """Process working agents and update their results."""
 
     working_agents = {
@@ -157,7 +121,7 @@ def check_status(state: SupervisorState) -> Dict[str, Any]:
         if agent["status"] == "working"
     }
     if not working_agents:
-        return {**state, "action": SupervisorAction.ASSIGN_TASKS}
+        return {**state, "action": OrchestratedAction.ASSIGN_TASKS}
 
     updated_agents = {**state["agents"]}
     status_messages = []
@@ -175,15 +139,10 @@ def check_status(state: SupervisorState) -> Dict[str, Any]:
             continue
 
         try:
-            response = _model("gpt-3.5-turbo").invoke(
-                [
-                    SystemMessage(
-                        content=AGENT_TASK_PROMPT_TEMPLATE.format(
-                            agent_name=agent["agent_name"]
-                        )
-                    ),
-                    *agent["messages"][-5:],
-                ]
+            response = supervisor_agent.run_agent_task(
+                agent_name=agent["agent_name"],
+                task=task,
+                messages=agent["messages"],
             )
             updated_agents[agent_id] = {
                 **updated_agents[agent_id],
@@ -205,33 +164,23 @@ def check_status(state: SupervisorState) -> Dict[str, Any]:
         **state,
         "messages": state["messages"] + [AIMessage(content="\n".join(status_messages))],
         "agents": updated_agents,
-        "action": SupervisorAction.ASSIGN_TASKS,
+        "action": OrchestratedAction.ASSIGN_TASKS,
     }
 
 
-def combine_results(state: SupervisorState) -> Dict[str, Any]:
-    """Combine all agent results into a final response."""
+def combine_results(state: OrchestratedState) -> Dict[str, Any]:
+    """Use the supervisor agent to combine all agent results."""
 
     results = []
     for agent in state["agents"].values():
         if agent["results"]:
             results.append(f"Agent {agent['agent_name']}:\n{agent['results']['response']}\n")
 
-    prompt = f"""Original user request: {state["user_input"]}
-
-Plan goal: {state["plan"]["goal"] if state["plan"] and "goal" in state["plan"] else "No specific goal"}
-
-Agent results:
-{''.join(results)}
-
-Based on these results, provide a comprehensive response to the user's original request."""
-
     try:
-        response = _model("gpt-4-turbo").invoke(
-            [
-                SystemMessage(content=COMBINE_RESULTS_PROMPT),
-                HumanMessage(content=prompt),
-            ]
+        response = supervisor_agent.combine_results(
+            user_input=state["user_input"] or "",
+            plan=state["plan"],
+            results=results,
         )
         return {
             **state,

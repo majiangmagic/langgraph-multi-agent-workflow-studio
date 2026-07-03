@@ -1,4 +1,4 @@
-"""State types for the supervisor workflow."""
+"""State types for the orchestrated workflow."""
 
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, TypedDict
@@ -17,8 +17,8 @@ class AgentState(TypedDict):
     tools: List[Dict[str, Any]]
 
 
-class SupervisorAction(str, Enum):
-    """Actions that the supervisor workflow can take."""
+class OrchestratedAction(str, Enum):
+    """Actions that the orchestrated workflow can take."""
 
     ANSWER_DIRECTLY = "answer_directly"
     CREATE_PLAN = "create_plan"
@@ -27,8 +27,8 @@ class SupervisorAction(str, Enum):
     COMBINE_RESULTS = "combine_results"
 
 
-class SupervisorState(TypedDict):
-    """Shared state passed through the supervisor workflow."""
+class OrchestratedState(TypedDict):
+    """Shared state passed through the orchestrated workflow."""
 
     messages: List[BaseMessage]
     user_input: Optional[str]
@@ -36,4 +36,4 @@ class SupervisorState(TypedDict):
     agents: Dict[str, AgentState]
     crew_id: str
     conversation_id: str
-    action: Optional[SupervisorAction]
+    action: Optional[OrchestratedAction]

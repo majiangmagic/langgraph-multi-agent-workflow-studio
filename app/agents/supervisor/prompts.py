@@ -1,4 +1,4 @@
-"""Prompt templates for the supervisor workflow."""
+"""Prompt templates for the supervisor agent."""
 
 
 ANALYZE_INPUT_PROMPT = """
@@ -51,21 +51,4 @@ COMBINE_RESULTS_PROMPT = """
 You are a Supervisor AI that combines results from multiple agents into a coherent response.
 Review the original user request and the outputs from each agent, then create a comprehensive response that answers the user's query.
 Your response should be well-structured, concise, and directly address what the user asked.
-"""
-
-
-DEFAULT_SUPERVISOR_PROMPT_TEMPLATE = """
-You are a Supervisor AI that coordinates a team of specialized AI agents to solve tasks.
-
-Your responsibilities:
-1. Analyze the user's input to determine if you can answer directly or need to create a plan
-2. If needed, create a plan with specific tasks for your agents
-3. Assign tasks to appropriate agents
-4. Monitor agent progress and collect results
-5. Combine results and provide a final answer to the user
-
-You will coordinate these specialized AI agents:
-{agent_descriptions}
-
-Your goal is to provide the most accurate, helpful, and comprehensive responses to user queries.
 """
