@@ -1,17 +1,15 @@
 """Shared state for the simple supervisor workflow."""
 
-import uuid
 from typing import Dict, List, TypedDict
 
-from app.agents.base import AgentState
-from app.agents.supervisor.state import SupervisorState
+from app.agents.supervisor.state import DelegatedAgentState, SupervisorState
 
 
 class SupervisorSimpleState(TypedDict):
     """Global state passed through the simple supervisor workflow."""
 
     supervisor: SupervisorState
-    agents: Dict[str, AgentState]
+    agents: Dict[str, DelegatedAgentState]
     crew_id: str
     conversation_id: str
 
@@ -21,9 +19,8 @@ def build_initial_state(crew_id: str, agents: List[Dict]) -> SupervisorSimpleSta
 
     agent_states = {}
     for agent_config in agents:
-        agent_id = agent_config.get("id") or str(uuid.uuid4())
-        agent_states[agent_id] = {
-            "agent_id": agent_id,
+        agent_key = agent_config.get("id") or agent_config["name"]
+        agent_states[agent_key] = {
             "agent_name": agent_config["name"],
             "messages": [],
             "status": "idle",

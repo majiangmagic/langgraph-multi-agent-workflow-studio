@@ -1,7 +1,10 @@
 """Simple supervisor workflow public API."""
 
-from app.agents.base import AgentState
-from app.agents.supervisor.state import SupervisorAction, SupervisorState
+from app.agents.supervisor.state import (
+    DelegatedAgentState,
+    SupervisorAction,
+    SupervisorState,
+)
 from app.core.langgraph.workflows.supervisor_simple.state import (
     build_initial_state,
     SupervisorSimpleState,
@@ -18,7 +21,7 @@ def __getattr__(name: str):
     raise AttributeError(name)
 
 __all__ = [
-    "AgentState",
+    "DelegatedAgentState",
     "SupervisorAction",
     "SupervisorSimpleState",
     "SupervisorState",

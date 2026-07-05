@@ -9,6 +9,24 @@ from app.agents.supervisor import supervisor_agent
 from app.agents.supervisor.state import SupervisorAction, SupervisorState
 
 
+def format_plan_summary(plan: Dict[str, Any]) -> str:
+    """Format the plan as useful supervisor conversation context."""
+
+    steps = [
+        f"{index}. {step['agent']}: {step['task']}"
+        for index, step in enumerate(plan.get("steps", []), start=1)
+    ]
+    return "Task plan:\n" + "\n".join(steps)
+
+
+def format_result_summary(results: list[str]) -> str:
+    """Format delegated results as useful supervisor conversation context."""
+
+    if not results:
+        return "Execution results: no delegated agent results were produced."
+    return "Execution results:\n" + "\n".join(results)
+
+
 def analyze_input(state: SupervisorState) -> Dict[str, Any]:
     """Use the supervisor agent to choose the next action."""
 
@@ -42,13 +60,10 @@ def create_plan(state: SupervisorState) -> Dict[str, Any]:
 
     try:
         plan = supervisor_agent.create_plan(state["user_input"] or "", agent_names)
-        plan_message = (
-            f"Plan created with {len(plan['steps'])} steps to achieve: "
-            f"{plan['goal']}"
-        )
         return {
             **state,
-            "messages": state["messages"] + [AIMessage(content=plan_message)],
+            "messages": state["messages"]
+            + [AIMessage(content=format_plan_summary(plan))],
             "plan": plan,
             "action": SupervisorAction.ASSIGN_TASKS,
         }
@@ -69,14 +84,14 @@ def assign_tasks(state: SupervisorState) -> Dict[str, Any]:
         return state
 
     updated_agents = {**state["agents"]}
-    agent_name_to_id = {
-        agent["agent_name"]: agent_id for agent_id, agent in state["agents"].items()
+    agent_name_to_key = {
+        agent["agent_name"]: agent_key for agent_key, agent in state["agents"].items()
     }
 
     next_step = None
     for step in plan["steps"]:
-        agent_id = agent_name_to_id.get(step["agent"])
-        if agent_id and state["agents"][agent_id]["status"] == "idle":
+        agent_key = agent_name_to_key.get(step["agent"])
+        if agent_key and state["agents"][agent_key]["status"] == "idle":
             next_step = step
             break
 
@@ -96,19 +111,17 @@ def assign_tasks(state: SupervisorState) -> Dict[str, Any]:
 
     agent_name = next_step["agent"]
     task = next_step["task"]
-    agent_id = agent_name_to_id[agent_name]
-    updated_agents[agent_id] = {
-        **updated_agents[agent_id],
+    agent_key = agent_name_to_key[agent_name]
+    updated_agents[agent_key] = {
+        **updated_agents[agent_key],
         "status": "working",
-        "messages": updated_agents[agent_id]["messages"]
+        "messages": updated_agents[agent_key]["messages"]
         + [HumanMessage(content=task)],
     }
 
     return {
         **state,
         "agents": updated_agents,
-        "messages": state["messages"]
-        + [AIMessage(content=f"Assigned task to {agent_name}: {task}")],
         "action": SupervisorAction.CHECK_STATUS,
     }
 
@@ -117,8 +130,8 @@ def check_status(state: SupervisorState) -> Dict[str, Any]:
     """Process working agents and update their results."""
 
     working_agents = {
-        agent_id: agent
-        for agent_id, agent in state["agents"].items()
+        agent_key: agent
+        for agent_key, agent in state["agents"].items()
         if agent["status"] == "working"
     }
     if not working_agents:
@@ -128,9 +141,8 @@ def check_status(state: SupervisorState) -> Dict[str, Any]:
         }
 
     updated_agents = {**state["agents"]}
-    status_messages = []
 
-    for agent_id, agent in working_agents.items():
+    for agent_key, agent in working_agents.items():
         task = next(
             (
                 msg.content
@@ -148,28 +160,23 @@ def check_status(state: SupervisorState) -> Dict[str, Any]:
                 task=task,
                 messages=agent["messages"],
             )
-            updated_agents[agent_id] = {
-                **updated_agents[agent_id],
+            updated_agents[agent_key] = {
+                **updated_agents[agent_key],
                 "status": "complete",
-                "messages": updated_agents[agent_id]["messages"] + [response],
+                "messages": updated_agents[agent_key]["messages"] + [response],
                 "results": {"task": task, "response": response.content},
             }
-            status_messages.append(
-                f"{agent['agent_name']} completed task: {task[:30]}..."
-            )
         except Exception as exc:
-            updated_agents[agent_id] = {
-                **updated_agents[agent_id],
+            updated_agents[agent_key] = {
+                **updated_agents[agent_key],
                 "status": "error",
-                "messages": updated_agents[agent_id]["messages"]
+                "messages": updated_agents[agent_key]["messages"]
                 + [AIMessage(content=f"Error: {str(exc)}")],
             }
-            status_messages.append(f"{agent['agent_name']} encountered an error: {str(exc)}")
 
     return {
         **state,
         "agents": updated_agents,
-        "messages": state["messages"] + [AIMessage(content="\n".join(status_messages))],
         "action": SupervisorAction.ASSIGN_TASKS,
     }
 
@@ -180,7 +187,7 @@ def combine_results(state: SupervisorState) -> Dict[str, Any]:
     results = []
     for agent in state["agents"].values():
         if agent["results"]:
-            results.append(f"Agent {agent['agent_name']}:\n{agent['results']['response']}\n")
+            results.append(f"{agent['agent_name']}: {agent['results']['response']}")
 
     try:
         response = supervisor_agent.combine_results(
@@ -190,7 +197,8 @@ def combine_results(state: SupervisorState) -> Dict[str, Any]:
         )
         return {
             **state,
-            "messages": state["messages"] + [response],
+            "messages": state["messages"]
+            + [AIMessage(content=format_result_summary(results)), response],
             "action": None,
         }
     except Exception as exc:
