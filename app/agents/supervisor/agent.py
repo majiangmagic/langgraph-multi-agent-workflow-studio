@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
@@ -34,7 +34,7 @@ class SupervisorAgent:
 
     def __init__(
         self,
-        decision_model: str | None = None,
+        decision_model: Optional[str] = None,
     ) -> None:
         config = read_agent_config()
         self.decision_model = decision_model or config.get("DECISION_MODEL", "gpt-4-turbo")
@@ -84,7 +84,7 @@ class SupervisorAgent:
     def combine_results(
         self,
         user_input: str,
-        plan: Dict[str, Any] | None,
+        plan: Optional[Dict[str, Any]],
         results: List[str],
     ) -> BaseMessage:
         """Combine delegated agent results into a final response."""
