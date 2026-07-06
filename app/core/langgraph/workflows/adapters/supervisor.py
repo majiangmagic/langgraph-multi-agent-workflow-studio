@@ -5,7 +5,7 @@ from typing import Any, Dict
 from langgraph.graph import StateGraph
 
 from app.agents.supervisor.state import DelegatedAgentState, SupervisorState
-from app.core.langgraph.workflows.adapters.agent import create_agent_node
+from app.core.langgraph.workflows.adapters.agent import AgentNodeExtension
 
 
 def build_workflow_agents(workflow: StateGraph) -> Dict[str, DelegatedAgentState]:
@@ -23,11 +23,9 @@ def build_workflow_agents(workflow: StateGraph) -> Dict[str, DelegatedAgentState
     }
 
 
-def create_supervisor_workflow_node(workflow: StateGraph, supervisor_graph):
-    """Create a workflow node that runs the reusable supervisor agent."""
+def create_supervisor_extension(workflow: StateGraph) -> AgentNodeExtension:
+    """Create the optional workflow extension for the supervisor agent."""
 
-    # 下面两个函数只描述 supervisor 和 workflow state 的进出转换。
-    # 真正注册到 workflow 的节点函数由 create_agent_node(...) 统一生成。
     def prepare_supervisor_state(state: Dict[str, Any]) -> SupervisorState:
         """Prepare supervisor state before running the agent graph."""
         agents = state["supervisor"]["agents"] or build_workflow_agents(workflow)
@@ -44,9 +42,7 @@ def create_supervisor_workflow_node(workflow: StateGraph, supervisor_graph):
             "supervisor": updated_supervisor_state,
         }
 
-    return create_agent_node(
-        "supervisor",
-        supervisor_graph,
+    return AgentNodeExtension(
         prepare_agent_state=prepare_supervisor_state,
         build_workflow_update=build_supervisor_update,
     )
