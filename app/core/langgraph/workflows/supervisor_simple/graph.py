@@ -23,10 +23,7 @@ def create_supervisor_simple_graph(
         raise ValueError("Agent graph factory 'supervisor' is not registered")
     supervisor_graph = supervisor_graph_factory()
 
-    workflow.add_node(
-        "supervisor",
-        create_agent_node("supervisor", supervisor_graph, extension=create_supervisor_extension(workflow)),
-    )
+    workflow.add_node("supervisor", create_agent_node("supervisor", supervisor_graph, extension=create_supervisor_extension(workflow)))
     workflow.add_edge("supervisor", END)
     workflow.set_entry_point("supervisor")
 
