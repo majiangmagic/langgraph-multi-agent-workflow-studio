@@ -57,6 +57,12 @@ def create_plan(state: SupervisorState) -> Dict[str, Any]:
     """Use the supervisor agent to create a JSON execution plan."""
 
     agent_names = [agent["agent_name"] for agent in state["agents"].values()]
+    if not agent_names:
+        return {
+            **state,
+            "plan": {"steps": []},
+            "action": SupervisorAction.COMBINE_RESULTS,
+        }
 
     try:
         plan = supervisor_agent.create_plan(state["user_input"] or "", agent_names)
@@ -81,7 +87,10 @@ def assign_tasks(state: SupervisorState) -> Dict[str, Any]:
 
     plan = state["plan"]
     if not plan or not plan.get("steps"):
-        return state
+        return {
+            **state,
+            "action": SupervisorAction.COMBINE_RESULTS,
+        }
 
     updated_agents = {**state["agents"]}
     agent_name_to_key = {
@@ -127,7 +136,7 @@ def assign_tasks(state: SupervisorState) -> Dict[str, Any]:
 
 
 def check_status(state: SupervisorState) -> Dict[str, Any]:
-    """Process working agents and update their results."""
+    """Check delegated task status without simulating agent execution."""
 
     working_agents = {
         agent_key: agent
@@ -135,6 +144,8 @@ def check_status(state: SupervisorState) -> Dict[str, Any]:
         if agent["status"] == "working"
     }
     if not working_agents:
+        if state.get("action") == SupervisorAction.COMBINE_RESULTS:
+            return state
         return {
             **state,
             "action": SupervisorAction.ASSIGN_TASKS,
@@ -143,41 +154,24 @@ def check_status(state: SupervisorState) -> Dict[str, Any]:
     updated_agents = {**state["agents"]}
 
     for agent_key, agent in working_agents.items():
-        task = next(
-            (
-                msg.content
-                for msg in reversed(agent["messages"])
-                if isinstance(msg, HumanMessage)
-            ),
-            None,
-        )
-        if not task:
-            continue
-
-        try:
-            response = supervisor_agent.run_agent_task(
-                agent_name=agent["agent_name"],
-                task=task,
-                messages=agent["messages"],
-            )
-            updated_agents[agent_key] = {
-                **updated_agents[agent_key],
-                "status": "complete",
-                "messages": updated_agents[agent_key]["messages"] + [response],
-                "results": {"task": task, "response": response.content},
-            }
-        except Exception as exc:
-            updated_agents[agent_key] = {
-                **updated_agents[agent_key],
-                "status": "error",
-                "messages": updated_agents[agent_key]["messages"]
-                + [AIMessage(content=f"Error: {str(exc)}")],
-            }
+        updated_agents[agent_key] = {
+            **updated_agents[agent_key],
+            "status": "error",
+            "messages": updated_agents[agent_key]["messages"]
+            + [
+                AIMessage(
+                    content=(
+                        f"{agent['agent_name']} 已收到任务，但当前 Workflow "
+                        "还没有接入这个真实 Agent 的执行节点。"
+                    )
+                )
+            ],
+        }
 
     return {
         **state,
         "agents": updated_agents,
-        "action": SupervisorAction.ASSIGN_TASKS,
+        "action": SupervisorAction.COMBINE_RESULTS,
     }
 
 
@@ -188,6 +182,18 @@ def combine_results(state: SupervisorState) -> Dict[str, Any]:
     for agent in state["agents"].values():
         if agent["results"]:
             results.append(f"{agent['agent_name']}: {agent['results']['response']}")
+
+    if not results:
+        content = (
+            "当前 Workflow 尚未接入真实 Agent 执行节点，无法执行这个任务。"
+            if state["agents"]
+            else "没有符合要求的 Agent，无法执行这个任务。"
+        )
+        return {
+            **state,
+            "messages": state["messages"] + [AIMessage(content=content)],
+            "action": None,
+        }
 
     try:
         response = supervisor_agent.combine_results(

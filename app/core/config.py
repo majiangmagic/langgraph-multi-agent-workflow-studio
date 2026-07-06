@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     
     # AI API keys
     openrouter_api_key: str
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openai_api_key: Optional[str] = None
     tavily_api_key: Optional[str] = None
     

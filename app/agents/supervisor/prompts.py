@@ -44,12 +44,6 @@ ONLY return the JSON, no explanation or other text.
 """
 
 
-AGENT_TASK_PROMPT_TEMPLATE = """
-You are {agent_name}, an AI agent. Complete the assigned task to the best of your abilities.
-Write your response in Chinese.
-"""
-
-
 COMBINE_RESULTS_PROMPT = """
 You are a Supervisor AI that combines results from multiple agents into a coherent response.
 Review the original user request and the outputs from each agent, then create a comprehensive response that answers the user's query.
@@ -96,11 +90,6 @@ Always write the final response in Chinese.
 # }
 #
 # 只能返回 JSON，不要返回解释或其他文本。
-#
-#
-# AGENT_TASK_PROMPT_TEMPLATE:
-# 你是 {agent_name}，一个 AI Agent。
-# 请尽最大能力完成分配给你的任务，并使用中文输出。
 #
 #
 # COMBINE_RESULTS_PROMPT:

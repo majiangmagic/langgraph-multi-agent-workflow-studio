@@ -1,12 +1,12 @@
 """Supervisor agent capabilities used by supervisor-style workflows."""
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
 from app.agents.supervisor.prompts import (
-    AGENT_TASK_PROMPT_TEMPLATE,
     ANALYZE_INPUT_PROMPT,
     COMBINE_RESULTS_PROMPT,
     DIRECT_ANSWER_PROMPT,
@@ -15,16 +15,29 @@ from app.agents.supervisor.prompts import (
 from app.services.ai_provider import ai_provider
 
 
+def read_agent_config() -> Dict[str, str]:
+    config_path = Path(__file__).with_name(".config")
+    if not config_path.exists():
+        return {}
+
+    values = {}
+    for line in config_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.lstrip().startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
 class SupervisorAgent:
     """Decision-making agent used by orchestration workflows."""
 
     def __init__(
         self,
-        decision_model: str = "gpt-4-turbo",
-        worker_model: str = "gpt-3.5-turbo",
+        decision_model: str | None = None,
     ) -> None:
-        self.decision_model = decision_model
-        self.worker_model = worker_model
+        config = read_agent_config()
+        self.decision_model = decision_model or config.get("DECISION_MODEL", "gpt-4-turbo")
 
     def _model(self, model_name: str):
         return ai_provider.get_model(model_name)
@@ -67,26 +80,6 @@ class SupervisorAgent:
         else:
             json_str = content
         return json.loads(json_str)
-
-    def run_agent_task(
-        self,
-        agent_name: str,
-        task: str,
-        messages: List[BaseMessage],
-    ) -> BaseMessage:
-        """Run a delegated task for an agent.
-
-        This remains a placeholder execution path until concrete agent runners are added.
-        """
-
-        return self._model(self.worker_model).invoke(
-            [
-                SystemMessage(
-                    content=AGENT_TASK_PROMPT_TEMPLATE.format(agent_name=agent_name)
-                ),
-                *messages[-5:],
-            ]
-        )
 
     def combine_results(
         self,
