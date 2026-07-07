@@ -27,6 +27,20 @@ def format_result_summary(results: list[str]) -> str:
     return "Execution results:\n" + "\n".join(results)
 
 
+def find_unknown_plan_agents(
+    plan: Dict[str, Any], agent_names: list[str]
+) -> list[str]:
+    """Return plan agent names that are not available in the current state."""
+
+    known_agents = set(agent_names)
+    unknown_agents = {
+        step.get("agent")
+        for step in plan.get("steps", [])
+        if step.get("agent") not in known_agents
+    }
+    return sorted(agent for agent in unknown_agents if agent)
+
+
 class AnalyzeInputNode:
     """Use the supervisor agent to choose the next action."""
 
@@ -69,6 +83,21 @@ class CreatePlanNode:
 
         try:
             plan = supervisor_agent.create_plan(state["user_input"] or "", agent_names)
+            unknown_agents = find_unknown_plan_agents(plan, agent_names)
+            if unknown_agents:
+                error = (
+                    "执行计划包含不存在的 Agent："
+                    f"{', '.join(unknown_agents)}。"
+                    "可用 Agent："
+                    f"{', '.join(agent_names)}。"
+                )
+                return {
+                    **state,
+                    "messages": state["messages"] + [AIMessage(content=error)],
+                    "plan": {**plan, "steps": [], "error": error},
+                    "action": SupervisorAction.COMBINE_RESULTS,
+                }
+
             return {
                 **state,
                 "messages": state["messages"]
@@ -191,6 +220,14 @@ class CombineResultsNode:
                 results.append(f"{agent['agent_name']}: {agent['results']['response']}")
 
         if not results:
+            if state["plan"] and state["plan"].get("error"):
+                return {
+                    **state,
+                    "messages": state["messages"]
+                    + [AIMessage(content=state["plan"]["error"])],
+                    "action": None,
+                }
+
             content = (
                 "当前 Workflow 尚未接入真实 Agent 执行节点，无法执行这个任务。"
                 if state["agents"]
