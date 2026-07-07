@@ -9,21 +9,18 @@ from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, relationship, mapped_column
 
+from app.core.config import settings
 from app.db.base import Base
 
 
-# Import the metadata from SQLAlchemy
-from sqlalchemy import MetaData
-
-# Create a metadata object with the same schema as Base
-metadata = MetaData(schema='public')
-
 # Association table for crews and MCP servers
+table_kwargs = {"schema": settings.database_schema} if settings.database_schema else {}
 crew_mcp_association = Table(
     "crew_mcp_servers",
-    metadata,
+    Base.metadata,
     Column("crew_id", UUID(as_uuid=True), ForeignKey("crews.id", ondelete="CASCADE"), primary_key=True),
-    Column("mcp_server_id", UUID(as_uuid=True), ForeignKey("mcp_servers.id", ondelete="CASCADE"), primary_key=True)
+    Column("mcp_server_id", UUID(as_uuid=True), ForeignKey("mcp_servers.id", ondelete="CASCADE"), primary_key=True),
+    **table_kwargs,
 )
 
 
@@ -44,7 +41,9 @@ class Crew(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     status: Mapped[CrewStatus] = mapped_column(
-        Enum(CrewStatus), default=CrewStatus.ACTIVE, nullable=False
+        Enum(CrewStatus, values_callable=lambda enum_cls: [item.value for item in enum_cls]),
+        default=CrewStatus.ACTIVE,
+        nullable=False,
     )
     settings: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     

@@ -3,6 +3,7 @@ Test configuration and fixtures
 """
 import asyncio
 import pytest
+import pytest_asyncio
 import uuid
 import os
 from typing import AsyncGenerator, Dict
@@ -13,6 +14,7 @@ from dotenv import load_dotenv
 
 # Load test environment variables
 load_dotenv(".env.test", override=True)
+os.environ["DATABASE_SCHEMA"] = os.getenv("DATABASE_SCHEMA", "")
 
 from app.db.base import Base, get_db
 from app.main import app
@@ -55,7 +57,7 @@ async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def setup_test_db():
     """Set up a test database with tables"""
     # For SQLite in-memory, create tables and drop them after tests
@@ -87,7 +89,7 @@ async def setup_test_db():
             # Continue without failing tests
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db_session(setup_test_db) -> AsyncGenerator[AsyncSession, None]:
     """Yield a test database session"""
     async with TestingSessionLocal() as session:
@@ -114,13 +116,13 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_crew(db_session) -> Crew:
     """Create a test crew in the database"""
     crew = Crew(
         name="Test Crew",
         description="A crew for testing",
-        metadata={"test": True}
+        settings={"test": True},
     )
     db_session.add(crew)
     await db_session.commit()
@@ -128,14 +130,14 @@ async def test_crew(db_session) -> Crew:
     return crew
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_mcp_server(db_session) -> MCPServer:
     """Create a test MCP server in the database"""
     mcp_server = MCPServer(
         name="Test MCP Server",
         url="http://test-mcp-server.example.com",
         description="A MCP server for testing",
-        metadata={"test": True}
+        settings={"test": True},
     )
     db_session.add(mcp_server)
     await db_session.commit()
@@ -143,15 +145,14 @@ async def test_mcp_server(db_session) -> MCPServer:
     return mcp_server
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_mcp_tool(db_session, test_mcp_server) -> MCPTool:
     """Create a test MCP tool in the database"""
     tool = MCPTool(
-        server_id=test_mcp_server.id,
+        mcp_server_id=test_mcp_server.id,
         name="test-tool",
         description="A tool for testing",
-        parameters={"param1": "string", "param2": "number"},
-        metadata={"test": True}
+        parameters_schema={"param1": "string", "param2": "number"},
     )
     db_session.add(tool)
     await db_session.commit()
@@ -159,7 +160,7 @@ async def test_mcp_tool(db_session, test_mcp_server) -> MCPTool:
     return tool
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_agent(db_session, test_crew) -> Agent:
     """Create a test agent in the database"""
     agent = Agent(
@@ -169,7 +170,7 @@ async def test_agent(db_session, test_crew) -> Agent:
         system_prompt="You are a test agent",
         model="test-model",
         is_supervisor=True,
-        metadata={"test": True}
+        settings={"test": True},
     )
     db_session.add(agent)
     await db_session.commit()
@@ -177,14 +178,14 @@ async def test_agent(db_session, test_crew) -> Agent:
     return agent
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_conversation(db_session, test_crew) -> Conversation:
     """Create a test conversation in the database"""
     conversation = Conversation(
         user_id="test-user",
         crew_id=test_crew.id,
         title="Test Conversation",
-        metadata={"test": True}
+        meta_data={"test": True},
     )
     db_session.add(conversation)
     await db_session.commit()
@@ -192,7 +193,7 @@ async def test_conversation(db_session, test_crew) -> Conversation:
     return conversation
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_message(db_session, test_conversation, test_agent) -> Message:
     """Create a test message in the database"""
     message = Message(
@@ -201,7 +202,7 @@ async def test_message(db_session, test_conversation, test_agent) -> Message:
         content="This is a test message",
         agent_id=test_agent.id,
         status=MessageStatus.COMPLETED,
-        metadata={"test": True}
+        meta_data={"test": True},
     )
     db_session.add(message)
     await db_session.commit()

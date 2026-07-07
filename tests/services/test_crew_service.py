@@ -19,7 +19,7 @@ async def test_create_crew(db_session):
     crew_data = CrewCreate(
         name="Test Crew Creation",
         description="A crew created during testing",
-        metadata={"test_key": "test_value"}
+        settings={"test_key": "test_value"}
     )
     
     # Create the crew
@@ -29,7 +29,7 @@ async def test_create_crew(db_session):
     assert crew.id is not None
     assert crew.name == crew_data.name
     assert crew.description == crew_data.description
-    assert crew.metadata == crew_data.metadata
+    assert crew.settings == crew_data.settings
 
 
 @pytest.mark.asyncio
@@ -43,7 +43,7 @@ async def test_get_crew(db_session, test_crew):
     assert retrieved_crew.id == test_crew.id
     assert retrieved_crew.name == test_crew.name
     assert retrieved_crew.description == test_crew.description
-    assert retrieved_crew.metadata == test_crew.metadata
+    assert retrieved_crew.settings == test_crew.settings
 
 
 @pytest.mark.asyncio
@@ -53,7 +53,7 @@ async def test_get_crews(db_session, test_crew):
     second_crew_data = CrewCreate(
         name="Second Test Crew",
         description="Another crew for testing",
-        metadata={"test": True}
+        settings={"test": True}
     )
     second_crew = await CrewService.create_crew(db_session, second_crew_data)
     
@@ -74,7 +74,7 @@ async def test_update_crew(db_session, test_crew):
     update_data = CrewUpdate(
         name="Updated Test Crew",
         description="Updated description",
-        metadata={"updated": True}
+        settings={"updated": True}
     )
     
     # Update the crew
@@ -85,7 +85,7 @@ async def test_update_crew(db_session, test_crew):
     assert updated_crew.id == test_crew.id
     assert updated_crew.name == update_data.name
     assert updated_crew.description == update_data.description
-    assert updated_crew.metadata == update_data.metadata
+    assert updated_crew.settings == update_data.settings
 
 
 @pytest.mark.asyncio

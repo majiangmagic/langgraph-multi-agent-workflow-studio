@@ -7,9 +7,11 @@ from uuid import UUID
 import asyncio
 from typing import List, Dict, Any
 
+from sqlalchemy import select
+
 from app.services.crew_service import AgentService
 from app.schemas.crew import AgentCreate, AgentUpdate
-from app.models.crew import Agent
+from app.models.crew import Agent, AgentTool
 
 
 @pytest.mark.asyncio
@@ -23,7 +25,7 @@ async def test_create_agent(db_session, test_crew):
         system_prompt="You are a test agent created for unit tests",
         model="test-model",
         is_supervisor=False,
-        metadata={"test_key": "test_value"}
+        settings={"test_key": "test_value"}
     )
     
     # Create the agent
@@ -36,7 +38,7 @@ async def test_create_agent(db_session, test_crew):
     assert agent.system_prompt == agent_data.system_prompt
     assert agent.model == agent_data.model
     assert agent.is_supervisor == agent_data.is_supervisor
-    assert agent.metadata == agent_data.metadata
+    assert agent.settings == agent_data.settings
     assert agent.crew_id == test_crew.id
 
 
@@ -54,7 +56,7 @@ async def test_get_agent(db_session, test_agent):
     assert retrieved_agent.system_prompt == test_agent.system_prompt
     assert retrieved_agent.model == test_agent.model
     assert retrieved_agent.is_supervisor == test_agent.is_supervisor
-    assert retrieved_agent.metadata == test_agent.metadata
+    assert retrieved_agent.settings == test_agent.settings
     assert retrieved_agent.crew_id == test_agent.crew_id
 
 
@@ -69,7 +71,7 @@ async def test_get_agents(db_session, test_agent, test_crew):
         system_prompt="You are another test agent",
         model="test-model",
         is_supervisor=False,
-        metadata={"test": True}
+        settings={"test": True}
     )
     second_agent = await AgentService.create_agent(db_session, second_agent_data)
     
@@ -99,7 +101,7 @@ async def test_update_agent(db_session, test_agent):
         system_prompt="You are an updated test agent",
         model="updated-model",
         is_supervisor=True,
-        metadata={"updated": True}
+        settings={"updated": True}
     )
     
     # Update the agent
@@ -113,7 +115,7 @@ async def test_update_agent(db_session, test_agent):
     assert updated_agent.system_prompt == update_data.system_prompt
     assert updated_agent.model == update_data.model
     assert updated_agent.is_supervisor == update_data.is_supervisor
-    assert updated_agent.metadata == update_data.metadata
+    assert updated_agent.settings == update_data.settings
 
 
 @pytest.mark.asyncio
@@ -168,11 +170,13 @@ async def test_assign_tool_to_agent(db_session, test_agent, test_mcp_tool):
     # Verify assignment was successful
     assert result is True
     
-    # Get the agent with tools
-    agent_with_tools = await AgentService.get_agent(db_session, test_agent.id)
-    
     # Verify the tool is assigned to the agent
-    assert any(tool.id == test_mcp_tool.id for tool in agent_with_tools.tools)
+    query = select(AgentTool).where(
+        (AgentTool.agent_id == test_agent.id)
+        & (AgentTool.mcp_tool_id == test_mcp_tool.id)
+    )
+    assigned_tool = (await db_session.execute(query)).scalars().first()
+    assert assigned_tool is not None
 
 
 @pytest.mark.asyncio
@@ -191,8 +195,10 @@ async def test_remove_tool_from_agent(db_session, test_agent, test_mcp_tool):
     # Verify removal was successful
     assert result is True
     
-    # Get the agent with tools
-    agent_with_tools = await AgentService.get_agent(db_session, test_agent.id)
-    
     # Verify the tool is not assigned to the agent
-    assert not any(tool.id == test_mcp_tool.id for tool in agent_with_tools.tools)
+    query = select(AgentTool).where(
+        (AgentTool.agent_id == test_agent.id)
+        & (AgentTool.mcp_tool_id == test_mcp_tool.id)
+    )
+    assigned_tool = (await db_session.execute(query)).scalars().first()
+    assert assigned_tool is None

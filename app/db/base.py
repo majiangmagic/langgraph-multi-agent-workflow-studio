@@ -25,11 +25,8 @@ async_session_factory = async_sessionmaker(
 
 class Base(DeclarativeBase):
     """Base class for SQLAlchemy models"""
-    
-    # Use a specific schema if configured
-    # Note: We're using __table_args__ instead of directly setting metadata
-    # because 'metadata' is a reserved attribute in SQLAlchemy Declarative API
-    __table_args__ = {'schema': settings.database_schema}
+
+    metadata = MetaData(schema=settings.database_schema or None)
     
     @classmethod
     def generate_uuid(cls) -> uuid.UUID:

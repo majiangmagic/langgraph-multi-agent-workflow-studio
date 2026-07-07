@@ -36,6 +36,14 @@ from typing import List, Dict, Any, Optional, Literal
 # Add project root to path to allow importing app modules directly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+if "pytest" in sys.modules:
+    import pytest
+
+    pytest.skip(
+        "Demo script uses legacy workflow imports and is not part of automated tests",
+        allow_module_level=True,
+    )
+
 from app.core.langgraph.supervisor import SupervisorState, AgentState
 from app.models.activity_log import ActivityType
 from app.db.base import get_db
