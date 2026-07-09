@@ -24,10 +24,13 @@ from app.schemas.conversation import (
     MessageResponse,
     ChatRequest,
     ChatResponse,
+    UnifiedChatRequest,
+    UnifiedChatResponse,
 )
 
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+chat_router = APIRouter(tags=["chat"])
 
 
 def agent_to_workflow_config(agent) -> Dict[str, Any]:
@@ -114,6 +117,99 @@ async def build_workflow_for_conversation(
     )
 
     return workflow, initial_state, supervisor
+
+
+async def run_chat_turn(
+    db: AsyncSession,
+    conversation,
+    message: str,
+) -> ChatResponse:
+    """Persist a user message, run the workflow, and persist the assistant reply."""
+
+    user_message = await ConversationService.add_message(
+        db=db,
+        conversation_id=conversation.id,
+        role=MessageRole.USER,
+        content=message,
+        status=MessageStatus.COMPLETED,
+    )
+
+    workflow, initial_state, supervisor = await build_workflow_for_conversation(
+        db, conversation, user_message
+    )
+
+    try:
+        final_state = await workflow.ainvoke(initial_state)
+        response_content = extract_workflow_response(final_state)
+    except Exception as e:
+        print(f"Error running supervisor workflow: {str(e)}")
+        response_content = (
+            "I apologize, but I encountered an issue processing your request. "
+            "Please try again later."
+        )
+
+    assistant_message = await ConversationService.add_message(
+        db=db,
+        conversation_id=conversation.id,
+        role=MessageRole.ASSISTANT,
+        content=response_content,
+        agent_id=supervisor.id,
+        parent_id=user_message.id,
+        status=MessageStatus.COMPLETED,
+    )
+
+    await ActivityLogService.log_activity(
+        db=db,
+        agent_id=supervisor.id,
+        activity_type=ActivityType.AGENT_MESSAGE,
+        description=f"Supervisor responded in conversation {conversation.id}",
+        conversation_id=conversation.id,
+        message_id=assistant_message.id,
+    )
+
+    return ChatResponse(
+        message_id=assistant_message.id,
+        content=response_content,
+    )
+
+
+async def get_or_create_chat_conversation(
+    db: AsyncSession,
+    request: UnifiedChatRequest,
+):
+    """Return an existing conversation or create one for a unified chat request."""
+
+    if request.conversation_id:
+        conversation = await ConversationService.get_conversation(
+            db, request.conversation_id
+        )
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Conversation with ID {request.conversation_id} not found",
+            )
+        return conversation
+
+    if not request.user_id or not request.crew_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="user_id and crew_id are required when conversation_id is not provided",
+        )
+
+    crew = await CrewService.get_crew(db, request.crew_id)
+    if not crew:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Crew with ID {request.crew_id} not found",
+        )
+
+    return await ConversationService.create_conversation(
+        db=db,
+        user_id=request.user_id,
+        crew_id=request.crew_id,
+        title=request.title,
+        metadata=request.metadata,
+    )
 
 
 @router.get("/", response_model=List[ConversationResponse])
@@ -291,54 +387,23 @@ async def chat(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Conversation with ID {conversation_id} not found"
         )
-    
-    # Add user message to conversation
-    user_message = await ConversationService.add_message(
-        db=db,
-        conversation_id=conversation_id,
-        role=MessageRole.USER,
-        content=chat_request.message,
-        status=MessageStatus.COMPLETED,
-    )
 
-    workflow, initial_state, supervisor = await build_workflow_for_conversation(
-        db, conversation, user_message
-    )
+    return await run_chat_turn(db, conversation, chat_request.message)
 
-    try:
-        final_state = await workflow.ainvoke(initial_state)
-        response_content = extract_workflow_response(final_state)
-    except Exception as e:
-        # Log the error
-        print(f"Error running supervisor workflow: {str(e)}")
-        # Provide a fallback response
-        response_content = f"I apologize, but I encountered an issue processing your request. Please try again later."
-        # You may want to log this to your monitoring system
-    
-    # Add assistant message to conversation
-    assistant_message = await ConversationService.add_message(
-        db=db,
-        conversation_id=conversation_id,
-        role=MessageRole.ASSISTANT,
-        content=response_content,
-        agent_id=supervisor.id,
-        parent_id=user_message.id,
-        status=MessageStatus.COMPLETED,
-    )
-    
-    # Log the activity
-    await ActivityLogService.log_activity(
-        db=db,
-        agent_id=supervisor.id,
-        activity_type=ActivityType.AGENT_MESSAGE,
-        description=f"Supervisor responded in conversation {conversation_id}",
-        conversation_id=conversation_id,
-        message_id=assistant_message.id,
-    )
-    
-    return ChatResponse(
-        message_id=assistant_message.id,
-        content=response_content
+
+@chat_router.post("/chat", response_model=UnifiedChatResponse)
+async def unified_chat(
+    chat_request: UnifiedChatRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a conversation when needed, then send one chat message."""
+
+    conversation = await get_or_create_chat_conversation(db, chat_request)
+    chat_response = await run_chat_turn(db, conversation, chat_request.message)
+    return UnifiedChatResponse(
+        conversation_id=conversation.id,
+        message_id=chat_response.message_id,
+        content=chat_response.content,
     )
 
 

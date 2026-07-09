@@ -37,6 +37,9 @@ def mock_services():
         mock_conversation.user_id = mock_user_id
         # Use AsyncMock for async methods
         mock_conversation_service.get_conversation = AsyncMock(return_value=mock_conversation)
+        mock_conversation_service.create_conversation = AsyncMock(
+            return_value=mock_conversation
+        )
 
         # Setup mock message
         mock_message = MagicMock()
@@ -163,6 +166,53 @@ async def test_chat_stream_endpoint(mock_services):
         assert "Test workflow response" in content_str
     
     # Verify the streaming endpoint now uses the same workflow path.
+    mock_services["workflow"].ainvoke.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_unified_chat_creates_conversation(mock_services):
+    """Test the unified chat endpoint creates a conversation before chatting."""
+
+    response = client.post(
+        "/api/chat",
+        json={
+            "user_id": mock_user_id,
+            "crew_id": str(mock_crew_id),
+            "message": "Start a new conversation",
+            "title": "New chat",
+        },
+    )
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["conversation_id"] == str(mock_conversation_id)
+    assert "message_id" in response_data
+    assert response_data["content"] == "Test workflow response"
+
+    mock_services["conversation_service"].create_conversation.assert_called_once()
+    mock_services["workflow_service"].create_workflow_run.assert_called_once()
+    mock_services["workflow"].ainvoke.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_unified_chat_continues_conversation(mock_services):
+    """Test the unified chat endpoint continues an existing conversation."""
+
+    response = client.post(
+        "/api/chat",
+        json={
+            "conversation_id": str(mock_conversation_id),
+            "message": "Continue this conversation",
+        },
+    )
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["conversation_id"] == str(mock_conversation_id)
+    assert response_data["content"] == "Test workflow response"
+
+    mock_services["conversation_service"].create_conversation.assert_not_called()
+    mock_services["conversation_service"].get_conversation.assert_called()
     mock_services["workflow"].ainvoke.assert_called_once()
 
 

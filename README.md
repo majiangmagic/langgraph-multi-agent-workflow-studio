@@ -24,8 +24,11 @@ app.include_router(conversation.router, prefix="/api")
 - `POST /api/conversations/{conversation_id}/messages`
 - `POST /api/conversations/{conversation_id}/chat`
 - `POST /api/conversations/{conversation_id}/chat/stream`
+- `POST /api/chat`
 
 `crew.py`、`storage.py` 等路由文件已经存在，但还没有在 `app/main.py` 中正式挂载到主应用。
+
+`POST /api/chat` 是统一聊天入口：如果请求里带 `conversation_id`，就继续已有会话；如果没有 `conversation_id`，则需要提供 `user_id` 和 `crew_id`，后端会先创建会话再发送第一条消息。响应会返回 `conversation_id`，方便前端继续对话。
 
 ## 工作流架构
 

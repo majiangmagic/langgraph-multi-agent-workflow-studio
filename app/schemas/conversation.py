@@ -92,3 +92,20 @@ class ChatResponse(BaseModel):
     """Schema for a chat response"""
     message_id: UUID
     content: str
+
+
+class UnifiedChatRequest(BaseModel):
+    """Schema for starting or continuing a conversation with one request."""
+
+    message: str
+    conversation_id: Optional[UUID] = None
+    user_id: Optional[str] = None
+    crew_id: Optional[UUID] = None
+    title: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class UnifiedChatResponse(ChatResponse):
+    """Schema for a chat response that also returns the conversation id."""
+
+    conversation_id: UUID

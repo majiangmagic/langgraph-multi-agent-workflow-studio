@@ -31,6 +31,7 @@ app.add_middleware(
 )
 
 # Include API routers
+app.include_router(conversation.chat_router, prefix="/api")
 app.include_router(conversation.router, prefix="/api")
 
 # Add other routers here as they are implemented
