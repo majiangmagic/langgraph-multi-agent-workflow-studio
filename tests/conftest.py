@@ -7,6 +7,8 @@ import pytest_asyncio
 import uuid
 import os
 from typing import AsyncGenerator, Dict
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
@@ -28,11 +30,11 @@ from app.models.conversation import Conversation, Message, MessageRole, MessageS
 TEST_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 # Ensure we're using the right async driver for PostgreSQL
-if "postgresql:" in TEST_DATABASE_URL or "postgres:" in TEST_DATABASE_URL:
-    # Replace postgresql: or postgres: with postgresql+asyncpg: to use async driver
-    TEST_DATABASE_URL = TEST_DATABASE_URL.replace("postgresql:", "postgresql+asyncpg:")
-    TEST_DATABASE_URL = TEST_DATABASE_URL.replace("postgres:", "postgresql+asyncpg:")
-    print(f"Using database URL for tests: {TEST_DATABASE_URL.replace('postgres:', '***')}")
+test_database_url = make_url(TEST_DATABASE_URL)
+if test_database_url.drivername in {"postgres", "postgresql", "postgresql+asyncpg"}:
+    # Use asyncpg for PostgreSQL without touching username/password text.
+    TEST_DATABASE_URL = str(test_database_url.set(drivername="postgresql+asyncpg"))
+    print(f"Using database URL for tests: {make_url(TEST_DATABASE_URL).render_as_string(hide_password=True)}")
 else:
     print(f"Using database URL for tests: {TEST_DATABASE_URL}")
 
@@ -83,7 +85,7 @@ async def setup_test_db():
                 tables = Base.metadata.tables.keys()
                 for table in tables:
                     # Use truncate instead of drop
-                    await conn.execute(f"TRUNCATE TABLE {table} CASCADE")
+                    await conn.execute(text(f"TRUNCATE TABLE {table} CASCADE"))
         except Exception as e:
             print(f"Error cleaning up tables: {e}")
             # Continue without failing tests
