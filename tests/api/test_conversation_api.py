@@ -28,7 +28,6 @@ def mock_services():
          patch("app.api.routes.conversation.CrewService") as mock_crew_service, \
          patch("app.api.routes.conversation.AgentService") as mock_agent_service, \
          patch("app.api.routes.conversation.ActivityLogService") as mock_activity_log_service, \
-         patch("app.api.routes.conversation.ai_provider") as mock_ai_provider, \
          patch("app.api.routes.conversation.WorkflowService") as mock_workflow_service, \
          patch("app.api.routes.conversation.build_initial_state") as mock_build_initial_state:
 
@@ -68,12 +67,6 @@ def mock_services():
         # Use AsyncMock for async methods
         mock_agent_service.get_agents = AsyncMock(return_value=[mock_agent])
 
-        # Setup mock AI provider
-        mock_model = MagicMock()
-        mock_model.invoke = AsyncMock(return_value=MagicMock(content="Test AI response"))
-        mock_model.ainvoke = AsyncMock(return_value=MagicMock(content="Test AI response"))
-        mock_ai_provider.get_model.return_value = mock_model
-
         mock_workflow = MagicMock()
         mock_workflow.ainvoke = AsyncMock(
             return_value={
@@ -103,7 +96,6 @@ def mock_services():
             "crew_service": mock_crew_service,
             "agent_service": mock_agent_service,
             "activity_log_service": mock_activity_log_service,
-            "ai_provider": mock_ai_provider,
             "workflow_service": mock_workflow_service,
             "workflow": mock_workflow,
         }
@@ -134,7 +126,6 @@ async def test_chat_endpoint(mock_services):
     # Verify the workflow was called instead of the direct AI provider path
     mock_services["workflow_service"].create_workflow.assert_called_once()
     mock_services["workflow"].ainvoke.assert_called_once()
-    mock_services["ai_provider"].get_model.assert_not_called()
     
     # Verify conversation service methods were called
     mock_services["conversation_service"].get_conversation.assert_called_once()
@@ -144,25 +135,6 @@ async def test_chat_endpoint(mock_services):
 @pytest.mark.asyncio
 async def test_chat_stream_endpoint(mock_services):
     """Test the streaming chat endpoint with mock OpenRouter API"""
-    
-    # Setup streaming mock
-    async def mock_stream():
-        # Simulate chunks from streaming API
-        chunks = [
-            MagicMock(content="This "),
-            MagicMock(content="is "),
-            MagicMock(content="a "),
-            MagicMock(content="streaming "),
-            MagicMock(content="response.")
-        ]
-        for chunk in chunks:
-            yield chunk
-    
-    # Configure mock to return streamable object
-    mock_services["ai_provider"].get_model.return_value.astream = MagicMock(
-        return_value=mock_stream()
-    )
-    
     # Prepare request
     request_data = {
         "message": "Hello, stream a response"
@@ -186,11 +158,10 @@ async def test_chat_stream_endpoint(mock_services):
         content_str = content.decode('utf-8')
         assert "data:" in content_str
         assert "chat.completion.chunk" in content_str
-        assert "content" in content_str
+        assert "Test workflow response" in content_str
     
-    # Verify the AI provider was called with streaming=True
-    mock_services["ai_provider"].get_model.assert_called_once()
-    assert mock_services["ai_provider"].get_model.call_args[1]["streaming"] is True
+    # Verify the streaming endpoint now uses the same workflow path.
+    mock_services["workflow"].ainvoke.assert_called_once()
 
 
 if __name__ == "__main__":

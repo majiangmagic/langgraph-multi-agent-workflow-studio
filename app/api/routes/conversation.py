@@ -14,7 +14,6 @@ from app.models.conversation import MessageRole, MessageStatus
 from app.models.activity_log import ActivityType
 from app.services.conversation_service import ConversationService, ActivityLogService
 from app.services.crew_service import CrewService, AgentService
-from app.services.ai_provider import ai_provider
 from app.services.workflow_service import WorkflowService
 from app.core.langgraph.workflows.supervisor_simple import build_initial_state
 from app.schemas.crew import CrewResponse, AgentResponse
@@ -67,6 +66,56 @@ def extract_workflow_response(final_state: Dict[str, Any]) -> str:
             return str(message.content)
 
     return "Workflow completed without an assistant response."
+
+
+async def build_workflow_for_conversation(
+    db: AsyncSession,
+    conversation,
+    user_message,
+):
+    """Create the configured workflow and initial state for a conversation turn."""
+
+    crew = await CrewService.get_crew(db, conversation.crew_id)
+    if not crew:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Crew with ID {conversation.crew_id} not found",
+        )
+
+    agents = await AgentService.get_agents(db, crew_id=crew.id)
+    supervisor = next((agent for agent in agents if agent.is_supervisor), None)
+    if not supervisor:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No supervisor agent found for crew {crew.id}",
+        )
+
+    messages = await ConversationService.get_messages(db, conversation.id)
+    history_messages = []
+    for message in messages:
+        if message.id == user_message.id:
+            continue
+
+        langchain_message = message_to_langchain_message(message)
+        if langchain_message is not None:
+            history_messages.append(langchain_message)
+
+    delegated_agents = [
+        agent_to_workflow_config(agent)
+        for agent in agents
+        if not agent.is_supervisor
+    ]
+    workflow = WorkflowService.create_workflow(
+        crew=crew,
+        agents=delegated_agents,
+        system_prompt=supervisor.system_prompt,
+    )
+    initial_state = build_initial_state(str(crew.id), delegated_agents)
+    initial_state["conversation_id"] = str(conversation.id)
+    initial_state["supervisor"]["messages"] = history_messages[-10:]
+    initial_state["supervisor"]["user_input"] = user_message.content
+
+    return workflow, initial_state, supervisor
 
 
 @router.get("/", response_model=List[ConversationResponse])
@@ -245,29 +294,6 @@ async def chat(
             detail=f"Conversation with ID {conversation_id} not found"
         )
     
-    # Get crew and agents
-    crew = await CrewService.get_crew(db, conversation.crew_id)
-    if not crew:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Crew with ID {conversation.crew_id} not found"
-        )
-    
-    agents = await AgentService.get_agents(db, crew_id=crew.id)
-    
-    # Find supervisor agent
-    supervisor = None
-    for agent in agents:
-        if agent.is_supervisor:
-            supervisor = agent
-            break
-    
-    if not supervisor:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No supervisor agent found for crew {crew.id}"
-        )
-    
     # Add user message to conversation
     user_message = await ConversationService.add_message(
         db=db,
@@ -276,31 +302,10 @@ async def chat(
         content=chat_request.message,
         status=MessageStatus.COMPLETED,
     )
-    
-    messages = await ConversationService.get_messages(db, conversation_id)
-    history_messages = []
-    for message in messages:
-        if message.id == user_message.id:
-            continue
 
-        langchain_message = message_to_langchain_message(message)
-        if langchain_message is not None:
-            history_messages.append(langchain_message)
-
-    delegated_agents = [
-        agent_to_workflow_config(agent)
-        for agent in agents
-        if not agent.is_supervisor
-    ]
-    workflow = WorkflowService.create_workflow(
-        crew=crew,
-        agents=delegated_agents,
-        system_prompt=supervisor.system_prompt,
+    workflow, initial_state, supervisor = await build_workflow_for_conversation(
+        db, conversation, user_message
     )
-    initial_state = build_initial_state(str(crew.id), delegated_agents)
-    initial_state["conversation_id"] = str(conversation_id)
-    initial_state["supervisor"]["messages"] = history_messages[-10:]
-    initial_state["supervisor"]["user_input"] = chat_request.message
 
     try:
         final_state = await workflow.ainvoke(initial_state)
@@ -354,28 +359,6 @@ async def chat_stream(
             detail=f"Conversation with ID {conversation_id} not found"
         )
     
-    # Get crew and supervisor agent
-    crew = await CrewService.get_crew(db, conversation.crew_id)
-    if not crew:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Crew with ID {conversation.crew_id} not found"
-        )
-    
-    # Find supervisor agent
-    agents = await AgentService.get_agents(db, crew_id=crew.id)
-    supervisor = None
-    for agent in agents:
-        if agent.is_supervisor:
-            supervisor = agent
-            break
-    
-    if not supervisor:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No supervisor agent found for crew {crew.id}"
-        )
-    
     # Add user message to conversation
     user_message = await ConversationService.add_message(
         db=db,
@@ -383,6 +366,10 @@ async def chat_stream(
         role=MessageRole.USER,
         content=chat_request.message,
         status=MessageStatus.COMPLETED,
+    )
+
+    workflow, initial_state, supervisor = await build_workflow_for_conversation(
+        db, conversation, user_message
     )
     
     # Create a placeholder for assistant message
@@ -396,54 +383,29 @@ async def chat_stream(
         status=MessageStatus.PROCESSING,
     )
     
-    # Real streaming response generation using OpenRouter API
+    # Stream the configured workflow result as SSE.
     async def stream_response():
         message_id = str(assistant_message.id)
         content_so_far = ""
         
         try:
-            # Get message history for context
-            messages = await ConversationService.get_messages(db, conversation_id)
-            
-            # Format messages for the LLM
-            formatted_messages = []
-            # Add previous messages to context (limit to recent messages)
-            for msg in messages[-10:]:  # Include only the 10 most recent messages
-                if msg.role == MessageRole.USER:
-                    formatted_messages.append({"role": "user", "content": msg.content})
-                elif msg.role == MessageRole.ASSISTANT:
-                    formatted_messages.append({"role": "assistant", "content": msg.content})
-                    
-            # Add the current message
-            formatted_messages.append({"role": "user", "content": chat_request.message})
-            
-            # Create the LLM model with streaming enabled
-            model = ai_provider.get_model(
-                model_name=supervisor.model,
-                temperature=0.7,  # Use moderate temperature for creative responses
-                streaming=True  # Enable streaming
-            )
-            
-            # Stream the response from OpenRouter
-            async for chunk in model.astream(formatted_messages):
-                if hasattr(chunk, 'content') and chunk.content is not None:
-                    content_so_far += chunk.content
-                    
-                    # Format the chunk data for SSE
-                    data = {
-                        "id": message_id,
-                        "object": "chat.completion.chunk",
-                        "created": int(assistant_message.created_at.timestamp()),
-                        "model": supervisor.model,
-                        "choices": [
-                            {
-                                "delta": {"content": chunk.content},
-                                "index": 0,
-                                "finish_reason": None
-                            }
-                        ]
+            final_state = await workflow.ainvoke(initial_state)
+            content_so_far = extract_workflow_response(final_state)
+
+            data = {
+                "id": message_id,
+                "object": "chat.completion.chunk",
+                "created": int(assistant_message.created_at.timestamp()),
+                "model": supervisor.model,
+                "choices": [
+                    {
+                        "delta": {"content": content_so_far},
+                        "index": 0,
+                        "finish_reason": None
                     }
-                    yield f"data: {json.dumps(data)}\n\n"
+                ]
+            }
+            yield f"data: {json.dumps(data)}\n\n"
             
             # Send final chunk with finish_reason: "stop"
             data = {
