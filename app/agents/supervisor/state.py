@@ -21,11 +21,7 @@ class DelegatedAgentState(TypedDict):
 
     agent_id: str
     agent_name: str
-    system_prompt: str
-    model: str
-    temperature: float
-    current_task: Optional[str]
-    completed_tasks: List[str]
+    messages: List[BaseMessage]
     status: Literal["idle", "working", "complete", "error"]
     results: Optional[Dict[str, Any]]
     error: Optional[str]
