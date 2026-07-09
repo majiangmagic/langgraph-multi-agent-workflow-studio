@@ -26,8 +26,8 @@ from app.models.conversation import Conversation, Message, MessageRole, MessageS
 
 
 # Use in-memory SQLite for local tests, PostgreSQL for CI
-# Check if we're running in CI by looking# Get database URL from environment or use SQLite in-memory as default
-TEST_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+# Use TEST_DATABASE_URL for test sessions; keep DATABASE_URL for app settings.
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 # Ensure we're using the right async driver for PostgreSQL
 test_database_url = make_url(TEST_DATABASE_URL)
