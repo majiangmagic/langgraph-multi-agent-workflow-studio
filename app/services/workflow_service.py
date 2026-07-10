@@ -30,7 +30,7 @@ class WorkflowService:
     def create_workflow(
         crew: Crew,
         agents: List[Dict[str, Any]],
-        system_prompt: Optional[str] = None,
+        supervisor_system_prompt: Optional[str] = None,
         model_name: Optional[str] = None,
         temperature: float = 0.2,
     ):
@@ -52,7 +52,7 @@ class WorkflowService:
         return workflow_factory(
             crew_id=str(crew.id),
             agents=agents,
-            system_prompt=system_prompt,
+            supervisor_system_prompt=supervisor_system_prompt,
             model_name=model_name,
             temperature=temperature,
         )
@@ -87,7 +87,7 @@ class WorkflowService:
         conversation_id: str,
         messages: List[BaseMessage],
         user_input: str,
-        system_prompt: Optional[str] = None,
+        supervisor_system_prompt: Optional[str] = None,
         model_name: Optional[str] = None,
         temperature: float = 0.2,
     ) -> Tuple[Any, Dict[str, Any]]:
@@ -96,7 +96,7 @@ class WorkflowService:
         workflow = WorkflowService.create_workflow(
             crew=crew,
             agents=agents,
-            system_prompt=system_prompt,
+            supervisor_system_prompt=supervisor_system_prompt,
             model_name=model_name,
             temperature=temperature,
         )

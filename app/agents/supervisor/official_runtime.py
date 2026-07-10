@@ -178,10 +178,18 @@ class OfficialSupervisorRuntime:
         agent_lines = []
         for runtime_name, agent_key in runtime_to_agent_key.items():
             agent = state["agents"][agent_key]
-            agent_lines.append(
-                f"- {runtime_name}: {agent['agent_name']} "
-                f"(agent_id={agent['agent_id']})"
-            )
+            details = [
+                f"name={agent['agent_name']}",
+                f"agent_id={agent['agent_id']}",
+            ]
+            if agent.get("description"):
+                details.append(f"description={agent['description']}")
+            if agent.get("system_prompt"):
+                details.append(f"instructions={agent['system_prompt']}")
+            if agent.get("model"):
+                details.append(f"model={agent['model']}")
+
+            agent_lines.append(f"- {runtime_name}: " + "; ".join(details))
 
         if not agent_lines:
             return (

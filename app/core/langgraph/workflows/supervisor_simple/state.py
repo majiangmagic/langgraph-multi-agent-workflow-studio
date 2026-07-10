@@ -30,6 +30,10 @@ def build_initial_state(
         agent_states[agent_key] = {
             "agent_id": str(agent_key),
             "agent_name": agent_config["name"],
+            "description": agent_config.get("description"),
+            "system_prompt": agent_config.get("system_prompt"),
+            "model": agent_config.get("model"),
+            "temperature": agent_config.get("temperature", 0.2),
             "messages": list(short_term_memory),
             "status": "idle",
             "results": None,

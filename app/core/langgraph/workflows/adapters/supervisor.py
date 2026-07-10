@@ -15,6 +15,10 @@ def build_workflow_agents(workflow: StateGraph) -> Dict[str, DelegatedAgentState
         agent_name: {
             "agent_id": agent_name,
             "agent_name": agent_name,
+            "description": None,
+            "system_prompt": None,
+            "model": None,
+            "temperature": 0.2,
             "messages": [],
             "status": "idle",
             "results": None,

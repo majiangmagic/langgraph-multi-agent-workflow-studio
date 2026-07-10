@@ -18,7 +18,7 @@ from app.core.langgraph.workflows.registry import workflow_registry
 def create_supervisor_simple_graph(
     crew_id: str,
     agents: List[Dict],
-    system_prompt: str = None,
+    supervisor_system_prompt: str = None,
     model_name: str = None,
     temperature: float = 0.2,
 ):
@@ -29,7 +29,7 @@ def create_supervisor_simple_graph(
     if supervisor_graph_factory is None:
         raise ValueError("Agent graph factory 'supervisor' is not registered")
     supervisor_graph = supervisor_graph_factory(
-        system_prompt=system_prompt,
+        system_prompt=supervisor_system_prompt,
         model_name=model_name,
         temperature=temperature,
     )
