@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 
 from app.core.config import settings
-from app.api.routes import conversation
+from app.api.routes import conversation, crew
 
 # Create FastAPI app with metadata for OpenAPI/Swagger docs
 app = FastAPI(
@@ -33,10 +33,9 @@ app.add_middleware(
 # Include API routers
 app.include_router(conversation.chat_router, prefix="/api")
 app.include_router(conversation.router, prefix="/api")
+app.include_router(crew.router, prefix="/api")
 
 # Add other routers here as they are implemented
-# app.include_router(crews_router, prefix="/api")
-# app.include_router(agents_router, prefix="/api")
 # app.include_router(mcp_servers_router, prefix="/api")
 
 # Health check endpoint

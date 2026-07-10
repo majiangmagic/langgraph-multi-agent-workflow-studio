@@ -15,7 +15,13 @@ class ConversationBase(BaseModel):
     """Base schema for conversation data"""
     user_id: str
     title: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        alias="meta_data",
+        serialization_alias="metadata",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class MessageBase(BaseModel):
@@ -25,7 +31,13 @@ class MessageBase(BaseModel):
     agent_id: Optional[UUID] = None
     parent_id: Optional[UUID] = None
     status: MessageStatus = MessageStatus.COMPLETED
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        alias="meta_data",
+        serialization_alias="metadata",
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 # Create schemas
@@ -48,7 +60,7 @@ class ConversationResponse(ConversationBase):
     created_at: datetime
     updated_at: datetime
     
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class MessageResponse(MessageBase):
@@ -58,7 +70,7 @@ class MessageResponse(MessageBase):
     created_at: datetime
     updated_at: datetime
     
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class ConversationWithMessages(ConversationResponse):
