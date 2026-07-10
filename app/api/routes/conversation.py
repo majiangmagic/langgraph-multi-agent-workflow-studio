@@ -145,6 +145,8 @@ async def build_workflow_for_conversation(
         messages=history_messages[-10:],
         user_input=user_message.content,
         system_prompt=supervisor.system_prompt,
+        model_name=supervisor.model,
+        temperature=supervisor.temperature,
     )
 
     return workflow, initial_state, supervisor

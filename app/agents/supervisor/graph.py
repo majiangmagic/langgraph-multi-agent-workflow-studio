@@ -1,59 +1,39 @@
-"""Internal graph for the supervisor agent."""
+"""Internal shell graph for the supervisor agent."""
 
 from langgraph.graph import END, StateGraph
 
-from app.agents.supervisor.nodes import (
-    analyze_input,
-    answer_directly,
-    assign_tasks,
-    check_status,
-    combine_results,
-    create_plan,
-)
-from app.agents.supervisor.router import route_by_action
-from app.agents.supervisor.state import SupervisorAction, SupervisorState
 from app.agents.registry import agent_registry
+from app.agents.supervisor.nodes import OfficialSupervisorNode
+from app.agents.supervisor.official_runtime import OfficialSupervisorRuntime
+from app.agents.supervisor.state import SupervisorState
 
 
-def create_graph():
-    """Create the supervisor agent's internal LangGraph."""
+def create_graph(
+    system_prompt: str | None = None,
+    model_name: str | None = None,
+    temperature: float = 0.2,
+):
+    """Create the supervisor shell that delegates internally to the official engine."""
 
     graph = StateGraph(SupervisorState)
-
-    graph.add_node("analyze_input", analyze_input)
-    graph.add_node("answer_directly", answer_directly)
-    graph.add_node("create_plan", create_plan)
-    graph.add_node("assign_tasks", assign_tasks)
-    graph.add_node("check_status", check_status)
-    graph.add_node("combine_results", combine_results)
-
-    graph.add_conditional_edges(
-        "analyze_input",
-        route_by_action,
-        {
-            SupervisorAction.ANSWER_DIRECTLY: "answer_directly",
-            SupervisorAction.CREATE_PLAN: "create_plan",
-        },
+    graph.add_node(
+        "official_supervisor",
+        OfficialSupervisorNode(
+            OfficialSupervisorRuntime(
+                system_prompt=system_prompt,
+                model_name=model_name,
+                temperature=temperature,
+            )
+        ),
     )
-    graph.add_edge("create_plan", "assign_tasks")
-    graph.add_edge("assign_tasks", "check_status")
-    graph.add_conditional_edges(
-        "check_status",
-        route_by_action,
-        {
-            SupervisorAction.ASSIGN_TASKS: "assign_tasks",
-            SupervisorAction.CHECK_STATUS: "check_status",
-            SupervisorAction.COMBINE_RESULTS: "combine_results",
-        },
-    )
-    graph.add_edge("answer_directly", END)
-    graph.add_edge("combine_results", END)
-    graph.set_entry_point("analyze_input")
+    graph.add_edge("official_supervisor", END)
+    graph.set_entry_point("official_supervisor")
 
     return graph.compile()
 
 
 create_supervisor_graph = create_graph
 
-# 注册给动态 Workflow 使用：外部可以通过字符串 "supervisor" 找到 create_graph 工厂。
+# Register for dynamic workflows: external workflow factories can look up
+# the supervisor graph factory by the string "supervisor".
 agent_registry.register("supervisor", create_graph)

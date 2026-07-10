@@ -31,6 +31,8 @@ class WorkflowService:
         crew: Crew,
         agents: List[Dict[str, Any]],
         system_prompt: Optional[str] = None,
+        model_name: Optional[str] = None,
+        temperature: float = 0.2,
     ):
         """Create the configured workflow for a crew.
 
@@ -51,6 +53,8 @@ class WorkflowService:
             crew_id=str(crew.id),
             agents=agents,
             system_prompt=system_prompt,
+            model_name=model_name,
+            temperature=temperature,
         )
 
     @staticmethod
@@ -84,6 +88,8 @@ class WorkflowService:
         messages: List[BaseMessage],
         user_input: str,
         system_prompt: Optional[str] = None,
+        model_name: Optional[str] = None,
+        temperature: float = 0.2,
     ) -> Tuple[Any, Dict[str, Any]]:
         """Create a workflow and its initial state without exposing state shape."""
 
@@ -91,6 +97,8 @@ class WorkflowService:
             crew=crew,
             agents=agents,
             system_prompt=system_prompt,
+            model_name=model_name,
+            temperature=temperature,
         )
         initial_state = WorkflowService.build_initial_state(
             crew=crew,

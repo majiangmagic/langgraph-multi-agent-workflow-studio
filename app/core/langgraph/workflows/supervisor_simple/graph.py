@@ -16,7 +16,11 @@ from app.core.langgraph.workflows.registry import workflow_registry
 
 
 def create_supervisor_simple_graph(
-    crew_id: str, agents: List[Dict], system_prompt: str = None
+    crew_id: str,
+    agents: List[Dict],
+    system_prompt: str = None,
+    model_name: str = None,
+    temperature: float = 0.2,
 ):
     """Create a compiled LangGraph for a simple supervisor agent crew."""
 
@@ -24,7 +28,11 @@ def create_supervisor_simple_graph(
     supervisor_graph_factory = agent_registry.get("supervisor")
     if supervisor_graph_factory is None:
         raise ValueError("Agent graph factory 'supervisor' is not registered")
-    supervisor_graph = supervisor_graph_factory()
+    supervisor_graph = supervisor_graph_factory(
+        system_prompt=system_prompt,
+        model_name=model_name,
+        temperature=temperature,
+    )
 
     workflow.add_node("supervisor", create_agent_node("supervisor", supervisor_graph, extension=create_supervisor_extension(workflow)))
     workflow.add_edge("supervisor", END)

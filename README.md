@@ -10,6 +10,7 @@
 - Crew / Agent / Conversation / Message 管理
 - 统一聊天入口 `POST /api/chat`
 - `chat` 请求接入 `supervisor_simple` 工作流
+- Supervisor 内部使用官方 `langgraph-supervisor` 引擎
 - 工作流运行进度事件流
 - PostgreSQL 主数据库
 - SQLAlchemy 模型和 service 层
@@ -29,15 +30,13 @@ HTTP API
 `supervisor_simple` 是当前默认工作流。它内部运行一个 supervisor agent graph：
 
 ```text
-analyze_input
-  -> answer_directly
-  -> create_plan
-  -> assign_tasks
-  -> check_status
-  -> combine_results
+supervisor_simple workflow
+  -> supervisor shell graph
+  -> official langgraph-supervisor runtime
+  -> delegated agent graph adapters
 ```
 
-简单问题会由 Supervisor 直接回答。复杂问题会进入计划、任务分配、状态检查和结果汇总流程。
+也就是说，项目保留自己的 API、数据库、workflow registry、state adapter 和事件流外壳；Supervisor 的内部编排交给官方 `langgraph-supervisor`。当前 worker agent 还没有真实 `AgentExecutor`，因此如果官方 Supervisor 决定委派任务，系统会诚实返回“该 agent 尚未接入真实 executor”，不会伪造执行结果。
 
 ## API 接口
 
@@ -105,7 +104,7 @@ node -> emit_event(...) -> WorkflowEventSink -> /chat/stream -> SSE
 ```text
 app/
   agents/
-    supervisor/              # Supervisor agent graph、state、nodes、prompts
+    supervisor/              # Supervisor shell、official runtime adapter、state
   api/
     routes/
       conversation.py        # Conversation 和 chat API

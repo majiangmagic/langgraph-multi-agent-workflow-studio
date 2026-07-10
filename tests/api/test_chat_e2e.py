@@ -64,12 +64,18 @@ async def test_create_crew_agents_and_chat_end_to_end(db_session):
             assert worker_response.status_code == 201
             assert worker_response.json()["model"] == AIProvider.DEFAULT_MODEL
 
+            def fake_official_supervisor_invoke(state):
+                return {
+                    **state,
+                    "messages": state["messages"]
+                    + [AIMessage(content="E2E workflow response")],
+                    "action": None,
+                }
+
             with patch(
-                "app.agents.supervisor.nodes.supervisor_agent.decide_action",
-                return_value="answer_directly",
-            ), patch(
-                "app.agents.supervisor.nodes.supervisor_agent.answer_directly",
-                return_value=AIMessage(content="E2E workflow response"),
+                "app.agents.supervisor.official_runtime."
+                "OfficialSupervisorRuntime.invoke",
+                side_effect=fake_official_supervisor_invoke,
             ):
                 chat_response = await client.post(
                     "/api/chat",
