@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "kind": "agent",
+  "name": "research_agent",
+  "display_name": "Research Agent",
+  "config": {
+    "prompt": "You are a research agent. Search carefully and summarize useful findings.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.2
+  },
+  "state": {
+    "query": {
+      "type": "string",
+      "optional": true
+    },
+    "search_results": {
+      "type": "list",
+      "optional": true
+    },
+    "answer": {
+      "type": "string",
+      "optional": true
+    }
+  },
+  "entrypoint": "search",
+  "nodes": {
+    "search": {
+      "handler": "search_node"
+    },
+    "summarize": {
+      "handler": "summarize_node"
+    }
+  },
+  "edges": [
+    {
+      "from": "search",
+      "to": "summarize"
+    },
+    {
+      "from": "summarize",
+      "to": "END"
+    }
+  ]
+}
