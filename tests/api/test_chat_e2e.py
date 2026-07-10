@@ -73,7 +73,7 @@ async def test_create_crew_agents_and_chat_end_to_end(db_session):
                 }
 
             with patch(
-                "app.agents.supervisor.official_runtime."
+                "app.agents.official_supervisor.official_runtime."
                 "OfficialSupervisorRuntime.invoke",
                 side_effect=fake_official_supervisor_invoke,
             ):

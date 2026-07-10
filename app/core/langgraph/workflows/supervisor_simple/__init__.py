@@ -1,6 +1,6 @@
 """Simple supervisor workflow public API."""
 
-from app.agents.supervisor.state import (
+from app.agents.official_supervisor.state import (
     DelegatedAgentState,
     SupervisorAction,
     SupervisorState,

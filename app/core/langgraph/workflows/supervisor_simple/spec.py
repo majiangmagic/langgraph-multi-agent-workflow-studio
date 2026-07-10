@@ -2,6 +2,7 @@
 
 from langgraph.graph import END
 
+from app.agents.official_supervisor.spec import OFFICIAL_SUPERVISOR_AGENT_NAME
 from app.core.langgraph.workflows.adapters.supervisor import create_supervisor_extension
 from app.core.langgraph.workflows.declarative import (
     WorkflowDefinition,
@@ -17,7 +18,7 @@ WORKFLOW_DEFINITION = WorkflowDefinition(
     nodes=[
         WorkflowNodeSpec(
             name=SUPERVISOR_NODE_NAME,
-            agent=SUPERVISOR_NODE_NAME,
+            agent=OFFICIAL_SUPERVISOR_AGENT_NAME,
             extension_factory=create_supervisor_extension,
         ),
     ],

@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from app.agents.supervisor.state import DelegatedAgentState, SupervisorState
+from app.agents.official_supervisor.state import DelegatedAgentState, SupervisorState
 from app.core.langgraph.workflows.adapters.agent import AgentNodeExtension
 
 

@@ -1,4 +1,4 @@
-"""State and action types owned by the supervisor agent."""
+"""State and action types owned by the official supervisor agent."""
 
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, TypedDict

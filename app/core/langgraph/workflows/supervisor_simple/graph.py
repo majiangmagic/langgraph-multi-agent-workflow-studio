@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List
 
-import app.agents.supervisor.graph  # noqa: F401
+import app.agents.official_supervisor.graph  # noqa: F401
 from app.core.langgraph.workflows.declarative import compile_workflow_definition
 from app.core.langgraph.workflows.registry import workflow_registry
 from app.core.langgraph.workflows.supervisor_simple.spec import WORKFLOW_DEFINITION

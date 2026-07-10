@@ -2,7 +2,7 @@
 
 from langchain_core.messages import AIMessage
 
-from app.agents.supervisor.official_runtime import OfficialSupervisorRuntime
+from app.agents.official_supervisor.official_runtime import OfficialSupervisorRuntime
 from app.core.langgraph.workflows.declarative import merge_node_states
 from app.core.langgraph.workflows.supervisor_simple.state import (
     build_initial_state,

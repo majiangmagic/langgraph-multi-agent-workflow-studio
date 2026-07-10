@@ -1,11 +1,11 @@
-"""Supervisor node backed by the official langgraph-supervisor engine."""
+"""Node backed by the official langgraph-supervisor engine."""
 
 from typing import Dict
 
 from langchain_core.runnables import RunnableConfig
 
-from app.agents.supervisor.official_runtime import OfficialSupervisorRuntime
-from app.agents.supervisor.state import SupervisorState
+from app.agents.official_supervisor.official_runtime import OfficialSupervisorRuntime
+from app.agents.official_supervisor.state import SupervisorState
 
 
 class OfficialSupervisorNode:
