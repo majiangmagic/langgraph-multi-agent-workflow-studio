@@ -140,13 +140,11 @@ async def build_workflow_for_conversation(
     ]
     workflow, initial_state = WorkflowService.create_workflow_run(
         crew=crew,
+        supervisor_agent=agent_to_workflow_config(supervisor),
         agents=delegated_agents,
         conversation_id=str(conversation.id),
         messages=history_messages[-10:],
         user_input=user_message.content,
-        supervisor_system_prompt=supervisor.system_prompt,
-        model_name=supervisor.model,
-        temperature=supervisor.temperature,
     )
 
     return workflow, initial_state, supervisor

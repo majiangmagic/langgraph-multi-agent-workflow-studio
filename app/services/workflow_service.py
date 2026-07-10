@@ -30,9 +30,7 @@ class WorkflowService:
     def create_workflow(
         crew: Crew,
         agents: List[Dict[str, Any]],
-        supervisor_system_prompt: Optional[str] = None,
-        model_name: Optional[str] = None,
-        temperature: float = 0.2,
+        supervisor_agent: Optional[Dict[str, Any]] = None,
     ):
         """Create the configured workflow for a crew.
 
@@ -51,10 +49,8 @@ class WorkflowService:
         workflow_factory = workflow_registry.get(workflow_type, fallback=True)
         return workflow_factory(
             crew_id=str(crew.id),
+            supervisor_agent=supervisor_agent,
             agents=agents,
-            supervisor_system_prompt=supervisor_system_prompt,
-            model_name=model_name,
-            temperature=temperature,
         )
 
     @staticmethod
@@ -83,22 +79,18 @@ class WorkflowService:
     @staticmethod
     def create_workflow_run(
         crew: Crew,
+        supervisor_agent: Optional[Dict[str, Any]],
         agents: List[Dict[str, Any]],
         conversation_id: str,
         messages: List[BaseMessage],
         user_input: str,
-        supervisor_system_prompt: Optional[str] = None,
-        model_name: Optional[str] = None,
-        temperature: float = 0.2,
     ) -> Tuple[Any, Dict[str, Any]]:
         """Create a workflow and its initial state without exposing state shape."""
 
         workflow = WorkflowService.create_workflow(
             crew=crew,
+            supervisor_agent=supervisor_agent,
             agents=agents,
-            supervisor_system_prompt=supervisor_system_prompt,
-            model_name=model_name,
-            temperature=temperature,
         )
         initial_state = WorkflowService.build_initial_state(
             crew=crew,
