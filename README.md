@@ -60,7 +60,7 @@ analyze_input
 - 复杂问题由 Supervisor 创建执行计划。
 - 执行计划会校验是否引用了不存在的 Agent。
 - 命中可用 Agent 后，会把任务写入该 Agent 的 delegated state。
-- `check_status` 会执行被分配任务的 Agent，并把结果写入 `results`。
+- `check_status` 当前只检查 delegated task 的状态；如果任务已经分配但还没有真实 `AgentExecutor` 接管执行，会把该 Agent 标记为 `error`，避免用假 Agent 冒充执行结果。
 - `combine_results` 汇总子 Agent 结果并生成最终回复。
 
 Workflow 的 initial state 现在由 workflow 自己的 `state_builder` 构造。Conversation API 只负责收集通用上下文，例如 `conversation_id`、最近消息、用户输入和 agents 列表；具体如何把短期记忆放进每个 agent 的 `messages`，由对应 workflow 决定。
@@ -96,8 +96,8 @@ Supervisor 侧只保存调度需要的信息，不保存 Agent 定义快照。
 当前还有几个关键限制：
 
 1. `chat/stream` 目前已经走 workflow，但仍是 workflow 完成后一次性输出结果，还不是节点事件级或 token 级 workflow event stream。
-2. 子 Agent 执行逻辑还在 Supervisor 节点里，后续应该抽成独立 `AgentExecutor`。
-3. 当前子 Agent 执行仍是简化版 LLM 调用，尚未支持多节点 Agent Graph。
+2. 子 Agent 真实执行器还没有接入；当前不会用默认 LLM 假装子 Agent 执行。
+3. 后续需要抽象独立 `AgentExecutor`，并支持单次 LLM Agent、多节点 Agent Graph、MCP Agent 等执行形态。
 4. MCP 工具模型和服务代码存在，但还没有形成完整的 Agent 工具调用闭环。
 5. 数据库迁移尚未完成，Alembic 还需要补。
 6. 主应用没有挂载全部 API router。

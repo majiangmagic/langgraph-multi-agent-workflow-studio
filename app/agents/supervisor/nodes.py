@@ -3,11 +3,10 @@
 import json
 from typing import Any, Dict
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agents.supervisor import supervisor_agent
 from app.agents.supervisor.state import SupervisorAction, SupervisorState
-from app.services.ai_provider import ai_provider
 
 
 def format_plan_summary(plan: Dict[str, Any]) -> str:
@@ -206,7 +205,7 @@ class AssignTasksNode:
 
 
 class CheckStatusNode:
-    """Execute delegated agent tasks and update their status."""
+    """Check delegated task status until real agent execution is connected."""
 
     def __call__(self, state: SupervisorState) -> Dict[str, Any]:
         working_agents = {
@@ -238,44 +237,18 @@ class CheckStatusNode:
                 }
                 continue
 
-            try:
-                model = ai_provider.get_model()
-                response = model.invoke(
-                    [
-                        SystemMessage(
-                            content=(
-                                f"You are {agent['agent_name']}, a specialized "
-                                "AI agent. Complete the assigned task."
-                            )
-                        ),
-                        *agent["messages"],
-                    ]
-                )
-                response_content = str(response.content)
-                previous_response = ""
-                if agent.get("results") and agent["results"].get("response"):
-                    previous_response = agent["results"]["response"] + "\n\n"
-
-                updated_agents[agent_key] = {
-                    **updated_agents[agent_key],
-                    "status": "complete",
-                    "results": {
-                        "response": previous_response
-                        + f"Task: {task}\nResult: {response_content}"
-                    },
-                    "messages": updated_agents[agent_key]["messages"] + [response],
-                    "error": None,
-                }
-            except Exception as exc:
-                error = f"{agent['agent_name']} failed to execute task: {str(exc)}"
-                updated_agents[agent_key] = {
-                    **updated_agents[agent_key],
-                    "status": "error",
-                    "results": {"error": error},
-                    "messages": updated_agents[agent_key]["messages"]
-                    + [AIMessage(content=error)],
-                    "error": error,
-                }
+            error = (
+                f"{agent['agent_name']} received task '{task}', but no real "
+                "agent executor is connected for delegated task execution yet."
+            )
+            updated_agents[agent_key] = {
+                **updated_agents[agent_key],
+                "status": "error",
+                "results": {"error": error},
+                "messages": updated_agents[agent_key]["messages"]
+                + [AIMessage(content=error)],
+                "error": error,
+            }
 
         return {
             **state,
