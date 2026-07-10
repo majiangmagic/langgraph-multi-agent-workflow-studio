@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agents.supervisor import supervisor_agent
 from app.agents.supervisor.state import SupervisorAction, SupervisorState
+from app.core.langgraph.events import emit_event
 
 
 def format_plan_summary(plan: Dict[str, Any]) -> str:
@@ -59,45 +60,95 @@ def last_assigned_task(agent: Dict[str, Any]) -> str:
     return ""
 
 
+def emit_node_started(node: str) -> None:
+    """Emit a supervisor node start event."""
+
+    emit_event(
+        {
+            "object": "workflow.event",
+            "type": "workflow.node.started",
+            "scope": "supervisor",
+            "node": node,
+        }
+    )
+
+
+def emit_node_completed(node: str, state: SupervisorState) -> None:
+    """Emit a small, JSON-safe supervisor node completion event."""
+
+    agents = state.get("agents") or {}
+    emit_event(
+        {
+            "object": "workflow.event",
+            "type": "workflow.node.completed",
+            "scope": "supervisor",
+            "node": node,
+            "summary": {
+                "action": str(state.get("action") or ""),
+                "plan_steps": len((state.get("plan") or {}).get("steps", [])),
+                "agents": [
+                    {
+                        "agent_id": agent.get("agent_id") or agent_key,
+                        "agent_name": agent.get("agent_name"),
+                        "status": agent.get("status"),
+                        "error": agent.get("error"),
+                    }
+                    for agent_key, agent in agents.items()
+                ],
+            },
+        }
+    )
+
+
 class AnalyzeInputNode:
     """Use the supervisor agent to choose the next action."""
 
     def __call__(self, state: SupervisorState) -> Dict[str, Any]:
+        emit_node_started("analyze_input")
         user_input = state["user_input"]
         if not user_input:
+            emit_node_completed("analyze_input", state)
             return state
 
         action = SupervisorAction(supervisor_agent.decide_action(user_input))
-        return {
+        new_state = {
             **state,
             "messages": state["messages"] + [HumanMessage(content=user_input)],
             "action": action,
         }
+        emit_node_completed("analyze_input", new_state)
+        return new_state
 
 
 class AnswerDirectlyNode:
     """Use the supervisor agent to answer without delegation."""
 
     def __call__(self, state: SupervisorState) -> Dict[str, Any]:
+        emit_node_started("answer_directly")
         response = supervisor_agent.answer_directly(state["messages"])
-        return {
+        new_state = {
             **state,
             "messages": state["messages"] + [response],
             "action": None,
         }
+        emit_node_completed("answer_directly", new_state)
+        return new_state
 
 
 class CreatePlanNode:
     """Use the supervisor agent to create a JSON execution plan."""
 
     def __call__(self, state: SupervisorState) -> Dict[str, Any]:
+        emit_node_started("create_plan")
         agent_names = [agent["agent_name"] for agent in state["agents"].values()]
         if not agent_names:
-            return {
+            new_state = {
                 **state,
                 "plan": {"steps": []},
                 "action": SupervisorAction.COMBINE_RESULTS,
             }
+            emit_node_completed("create_plan", new_state)
+            return new_state
 
         try:
             plan = supervisor_agent.create_plan(state["user_input"] or "", agent_names)
@@ -109,39 +160,48 @@ class CreatePlanNode:
                     "Available agents: "
                     f"{', '.join(agent_names)}."
                 )
-                return {
+                new_state = {
                     **state,
                     "messages": state["messages"] + [AIMessage(content=error)],
                     "plan": {**plan, "steps": [], "error": error},
                     "action": SupervisorAction.COMBINE_RESULTS,
                 }
+                emit_node_completed("create_plan", new_state)
+                return new_state
 
-            return {
+            new_state = {
                 **state,
                 "messages": state["messages"]
                 + [AIMessage(content=format_plan_summary(plan))],
                 "plan": plan,
                 "action": SupervisorAction.ASSIGN_TASKS,
             }
+            emit_node_completed("create_plan", new_state)
+            return new_state
         except (json.JSONDecodeError, KeyError) as exc:
-            return {
+            new_state = {
                 **state,
                 "messages": state["messages"]
                 + [AIMessage(content=f"Failed to create a valid plan: {str(exc)}")],
                 "action": SupervisorAction.ANSWER_DIRECTLY,
             }
+            emit_node_completed("create_plan", new_state)
+            return new_state
 
 
 class AssignTasksNode:
     """Assign the next pending plan step to an available agent."""
 
     def __call__(self, state: SupervisorState) -> Dict[str, Any]:
+        emit_node_started("assign_tasks")
         plan = state["plan"]
         if not plan or not plan.get("steps"):
-            return {
+            new_state = {
                 **state,
                 "action": SupervisorAction.COMBINE_RESULTS,
             }
+            emit_node_completed("assign_tasks", new_state)
+            return new_state
 
         updated_agents = {**state["agents"]}
         agent_name_to_key = {
@@ -178,17 +238,29 @@ class AssignTasksNode:
                 updated_agents[agent_name_to_key[step["agent"]]]["status"] == "working"
                 for step in plan_steps
             )
-            return {
+            new_state = {
                 **state,
                 "agents": updated_agents,
                 "action": SupervisorAction.COMBINE_RESULTS
                 if not any_working or (all_assigned and all_complete)
                 else SupervisorAction.CHECK_STATUS,
             }
+            emit_node_completed("assign_tasks", new_state)
+            return new_state
 
         agent_name = next_step["agent"]
         task = next_step["task"]
         agent_key = agent_name_to_key[agent_name]
+        emit_event(
+            {
+                "object": "workflow.event",
+                "type": "workflow.task.assigned",
+                "scope": "supervisor",
+                "agent_id": agent_key,
+                "agent_name": agent_name,
+                "task": task,
+            }
+        )
         updated_agents[agent_key] = {
             **updated_agents[agent_key],
             "status": "working",
@@ -197,17 +269,20 @@ class AssignTasksNode:
             "error": None,
         }
 
-        return {
+        new_state = {
             **state,
             "agents": updated_agents,
             "action": SupervisorAction.CHECK_STATUS,
         }
+        emit_node_completed("assign_tasks", new_state)
+        return new_state
 
 
 class CheckStatusNode:
     """Check delegated task status until real agent execution is connected."""
 
     def __call__(self, state: SupervisorState) -> Dict[str, Any]:
+        emit_node_started("check_status")
         working_agents = {
             agent_key: agent
             for agent_key, agent in state["agents"].items()
@@ -215,11 +290,14 @@ class CheckStatusNode:
         }
         if not working_agents:
             if state.get("action") == SupervisorAction.COMBINE_RESULTS:
+                emit_node_completed("check_status", state)
                 return state
-            return {
+            new_state = {
                 **state,
                 "action": SupervisorAction.ASSIGN_TASKS,
             }
+            emit_node_completed("check_status", new_state)
+            return new_state
 
         updated_agents = {**state["agents"]}
 
@@ -235,6 +313,16 @@ class CheckStatusNode:
                     + [AIMessage(content=error)],
                     "error": error,
                 }
+                emit_event(
+                    {
+                        "object": "workflow.event",
+                        "type": "workflow.agent.error",
+                        "scope": "supervisor",
+                        "agent_id": agent_key,
+                        "agent_name": agent["agent_name"],
+                        "error": error,
+                    }
+                )
                 continue
 
             error = (
@@ -249,18 +337,32 @@ class CheckStatusNode:
                 + [AIMessage(content=error)],
                 "error": error,
             }
+            emit_event(
+                {
+                    "object": "workflow.event",
+                    "type": "workflow.agent.error",
+                    "scope": "supervisor",
+                    "agent_id": agent_key,
+                    "agent_name": agent["agent_name"],
+                    "task": task,
+                    "error": error,
+                }
+            )
 
-        return {
+        new_state = {
             **state,
             "agents": updated_agents,
             "action": SupervisorAction.ASSIGN_TASKS,
         }
+        emit_node_completed("check_status", new_state)
+        return new_state
 
 
 class CombineResultsNode:
     """Use the supervisor agent to combine all agent results."""
 
     def __call__(self, state: SupervisorState) -> Dict[str, Any]:
+        emit_node_started("combine_results")
         results = []
         errors = []
         for agent in state["agents"].values():
@@ -271,12 +373,14 @@ class CombineResultsNode:
 
         if not results:
             if state["plan"] and state["plan"].get("error"):
-                return {
+                new_state = {
                     **state,
                     "messages": state["messages"]
                     + [AIMessage(content=state["plan"]["error"])],
                     "action": None,
                 }
+                emit_node_completed("combine_results", new_state)
+                return new_state
 
             content = (
                 "No available agent completed the task successfully."
@@ -285,11 +389,13 @@ class CombineResultsNode:
             )
             if errors:
                 content += "\n\nErrors:\n" + "\n".join(errors)
-            return {
+            new_state = {
                 **state,
                 "messages": state["messages"] + [AIMessage(content=content)],
                 "action": None,
             }
+            emit_node_completed("combine_results", new_state)
+            return new_state
 
         try:
             response = supervisor_agent.combine_results(
@@ -297,19 +403,23 @@ class CombineResultsNode:
                 plan=state["plan"],
                 results=results,
             )
-            return {
+            new_state = {
                 **state,
                 "messages": state["messages"]
                 + [AIMessage(content=format_result_summary(results)), response],
                 "action": None,
             }
+            emit_node_completed("combine_results", new_state)
+            return new_state
         except Exception as exc:
-            return {
+            new_state = {
                 **state,
                 "messages": state["messages"]
                 + [AIMessage(content=f"Error combining results: {str(exc)}")],
                 "action": None,
             }
+            emit_node_completed("combine_results", new_state)
+            return new_state
 
 
 analyze_input = AnalyzeInputNode()

@@ -162,6 +162,9 @@ async def test_chat_stream_endpoint(mock_services):
         # Convert bytes to string and check contents
         content_str = content.decode('utf-8')
         assert "data:" in content_str
+        assert "workflow.event" in content_str
+        assert "workflow.started" in content_str
+        assert "workflow.completed" in content_str
         assert "chat.completion.chunk" in content_str
         assert "Test workflow response" in content_str
     

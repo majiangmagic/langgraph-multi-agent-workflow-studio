@@ -1,6 +1,7 @@
 """
 API routes for conversations and chat functionality
 """
+import asyncio
 from typing import List, Optional, Dict, Any
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
@@ -12,6 +13,11 @@ import json
 from app.db.base import get_db
 from app.models.conversation import MessageRole, MessageStatus
 from app.models.activity_log import ActivityType
+from app.core.langgraph.events import (
+    WorkflowEventSink,
+    reset_event_sink,
+    set_event_sink,
+)
 from app.services.conversation_service import ConversationService, ActivityLogService
 from app.services.crew_service import CrewService, AgentService
 from app.services.workflow_service import WorkflowService
@@ -68,6 +74,31 @@ def extract_workflow_response(final_state: Dict[str, Any]) -> str:
             return str(message.content)
 
     return "Workflow completed without an assistant response."
+
+
+def stream_data(data: Dict[str, Any]) -> str:
+    """Serialize one server-sent event payload."""
+
+    return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def summarize_supervisor_state(supervisor_state: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a small, JSON-safe workflow progress summary."""
+
+    agents = supervisor_state.get("agents") or {}
+    return {
+        "action": str(supervisor_state.get("action") or ""),
+        "plan_steps": len((supervisor_state.get("plan") or {}).get("steps", [])),
+        "agents": [
+            {
+                "agent_id": agent.get("agent_id") or agent_key,
+                "agent_name": agent.get("agent_name"),
+                "status": agent.get("status"),
+                "error": agent.get("error"),
+            }
+            for agent_key, agent in agents.items()
+        ],
+    }
 
 
 async def build_workflow_for_conversation(
@@ -450,9 +481,55 @@ async def chat_stream(
     async def stream_response():
         message_id = str(assistant_message.id)
         content_so_far = ""
+        sink = WorkflowEventSink()
+
+        async def run_workflow():
+            token = set_event_sink(sink)
+            try:
+                sink.emit(
+                    {
+                        "id": message_id,
+                        "object": "workflow.event",
+                        "type": "workflow.started",
+                        "conversation_id": str(conversation_id),
+                    }
+                )
+                final = await workflow.ainvoke(initial_state)
+                sink.emit(
+                    {
+                        "id": message_id,
+                        "object": "workflow.event",
+                        "type": "workflow.completed",
+                        "summary": summarize_supervisor_state(
+                            final.get("supervisor", {})
+                        ),
+                    }
+                )
+                return final
+            except Exception as exc:
+                sink.emit(
+                    {
+                        "id": message_id,
+                        "object": "workflow.event",
+                        "type": "workflow.error",
+                        "error": str(exc),
+                    }
+                )
+                raise
+            finally:
+                reset_event_sink(token)
+                sink.close()
         
         try:
-            final_state = await workflow.ainvoke(initial_state)
+            workflow_task = asyncio.create_task(run_workflow())
+            while True:
+                event = await sink.queue.get()
+                if event.get("type") == "_workflow.event_stream.done":
+                    break
+                yield stream_data(event)
+
+            final_state = await workflow_task
+
             content_so_far = extract_workflow_response(final_state)
 
             data = {
@@ -468,7 +545,7 @@ async def chat_stream(
                     }
                 ]
             }
-            yield f"data: {json.dumps(data)}\n\n"
+            yield stream_data(data)
             
             # Send final chunk with finish_reason: "stop"
             data = {
@@ -484,7 +561,7 @@ async def chat_stream(
                     }
                 ]
             }
-            yield f"data: {json.dumps(data)}\n\n"
+            yield stream_data(data)
             
         except Exception as e:
             # Log the error
@@ -508,7 +585,7 @@ async def chat_stream(
                     }
                 ]
             }
-            yield f"data: {json.dumps(data)}\n\n"
+            yield stream_data(data)
             
             # Send final chunk
             data = {
@@ -524,7 +601,7 @@ async def chat_stream(
                     }
                 ]
             }
-            yield f"data: {json.dumps(data)}\n\n"
+            yield stream_data(data)
         
         # After streaming is complete (whether success or error), update the message in the database
         
