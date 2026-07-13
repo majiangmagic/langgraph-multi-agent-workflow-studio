@@ -9,7 +9,6 @@ from app.core.langgraph.workflows.declarative import (
     build_workflow_initial_state,
     merge_node_states,
 )
-from app.core.langgraph.workflows.baseball_analysis_workflow.spec import WORKFLOW_DEFINITION
 
 BaseballAnalysisWorkflowState = WorkflowState
 
@@ -22,6 +21,10 @@ def build_initial_state(
     user_input: Optional[str] = None,
 ) -> WorkflowState:
     """Build initial state for this workflow definition."""
+
+    from app.core.langgraph.workflows.baseball_analysis_workflow.graph import (
+        WORKFLOW_DEFINITION,
+    )
 
     return build_workflow_initial_state(
         definition=WORKFLOW_DEFINITION,

@@ -9,7 +9,6 @@ from app.core.langgraph.workflows.declarative import (
     build_workflow_initial_state,
     merge_node_states,
 )
-from app.core.langgraph.workflows.supervisor_simple.spec import WORKFLOW_DEFINITION
 
 SupervisorSimpleState = WorkflowState
 
@@ -22,6 +21,8 @@ def build_initial_state(
     user_input: Optional[str] = None,
 ) -> WorkflowState:
     """Build initial state for the supervisor workflow definition."""
+
+    from app.core.langgraph.workflows.supervisor_simple.graph import WORKFLOW_DEFINITION
 
     return build_workflow_initial_state(
         definition=WORKFLOW_DEFINITION,

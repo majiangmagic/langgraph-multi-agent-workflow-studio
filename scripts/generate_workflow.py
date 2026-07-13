@@ -179,15 +179,45 @@ def render_graph(workflow: WorkflowDsl) -> str:
         f"import app.agents.{agent}.graph  # noqa: F401"
         for agent in sorted({node.agent for node in workflow.nodes})
     )
+    extension_import_text, extension_by_node = extension_imports(workflow)
+    node_specs = "\n".join(render_node_spec(node, extension_by_node) for node in workflow.nodes)
+    edge_specs = "\n".join(
+        f'''        WorkflowEdgeSpec(source="{edge.source}", target={"END" if edge.target == "END" else repr(edge.target)}),'''
+        for edge in workflow.edges
+    )
+    imports = "\n".join(
+        part
+        for part in [
+            "from langgraph.graph import END",
+            extension_import_text,
+            "from app.core.langgraph.workflows.declarative import (",
+            "    WorkflowDefinition,",
+            "    WorkflowEdgeSpec,",
+            "    WorkflowNodeSpec,",
+            "    compile_workflow_definition,",
+            ")",
+        ]
+        if part
+    )
     return f'''"""Graph factory for the {workflow.name} workflow."""
 
 from typing import Any, Dict, List
 
 {agent_imports}
-from app.core.langgraph.workflows.declarative import compile_workflow_definition
+{imports}
 from app.core.langgraph.workflows.registry import workflow_registry
-from app.core.langgraph.workflows.{workflow.name}.spec import WORKFLOW_DEFINITION
 from app.core.langgraph.workflows.{workflow.name}.state import build_initial_state
+
+WORKFLOW_DEFINITION = WorkflowDefinition(
+    name="{workflow.name}",
+    entrypoint="{workflow.entrypoint}",
+    nodes=[
+{node_specs}
+    ],
+    edges=[
+{edge_specs}
+    ],
+)
 
 
 def {factory_name}(
@@ -227,51 +257,6 @@ def extension_imports(workflow: WorkflowDsl) -> tuple[str, Dict[str, str]]:
     return "\n".join(sorted(set(imports))), mapping
 
 
-def render_spec(workflow: WorkflowDsl) -> str:
-    extension_import_text, extension_by_node = extension_imports(workflow)
-    agent_constants = "\n".join(
-        f'{agent_name.upper()}_AGENT_NAME = "{agent_name}"'
-        for agent_name in sorted({node.agent for node in workflow.nodes})
-    )
-    node_specs = "\n".join(render_node_spec(node, extension_by_node) for node in workflow.nodes)
-    edge_specs = "\n".join(
-        f'''        WorkflowEdgeSpec(source="{edge.source}", target={"END" if edge.target == "END" else repr(edge.target)}),'''
-        for edge in workflow.edges
-    )
-    imports = "\n".join(
-        part
-        for part in [
-            "from langgraph.graph import END",
-            extension_import_text,
-            "from app.core.langgraph.workflows.declarative import (",
-            "    WorkflowDefinition,",
-            "    WorkflowEdgeSpec,",
-            "    WorkflowNodeSpec,",
-            ")",
-        ]
-        if part
-    )
-    return f'''"""Declarative spec for the {workflow.name} workflow."""
-
-{imports}
-
-{workflow.name.upper()}_WORKFLOW_NAME = "{workflow.name}"
-{workflow.name.upper()}_ENTRYPOINT = "{workflow.entrypoint}"
-{agent_constants}
-
-WORKFLOW_DEFINITION = WorkflowDefinition(
-    name={workflow.name.upper()}_WORKFLOW_NAME,
-    entrypoint={workflow.name.upper()}_ENTRYPOINT,
-    nodes=[
-{node_specs}
-    ],
-    edges=[
-{edge_specs}
-    ],
-)
-'''
-
-
 def render_node_spec(
     node: WorkflowNodeDsl,
     extension_by_node: Dict[str, str],
@@ -300,7 +285,6 @@ from app.core.langgraph.workflows.declarative import (
     build_workflow_initial_state,
     merge_node_states,
 )
-from app.core.langgraph.workflows.{workflow.name}.spec import WORKFLOW_DEFINITION
 
 {workflow.state_alias} = WorkflowState
 
@@ -313,6 +297,8 @@ def build_initial_state(
     user_input: Optional[str] = None,
 ) -> WorkflowState:
     """Build initial state for this workflow definition."""
+
+    from app.core.langgraph.workflows.{workflow.name}.graph import WORKFLOW_DEFINITION
 
     return build_workflow_initial_state(
         definition=WORKFLOW_DEFINITION,
@@ -333,7 +319,6 @@ def write_workflow(workflow: WorkflowDsl) -> None:
 
     (workflow_dir / "__init__.py").write_text(render_init(workflow), encoding="utf-8")
     (workflow_dir / "graph.py").write_text(render_graph(workflow), encoding="utf-8")
-    (workflow_dir / "spec.py").write_text(render_spec(workflow), encoding="utf-8")
     (workflow_dir / "state.py").write_text(render_state(workflow), encoding="utf-8")
 
 
