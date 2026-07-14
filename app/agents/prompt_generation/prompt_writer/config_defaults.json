@@ -1,0 +1,9 @@
+{
+  "name": "prompt_writer",
+  "display_name": "Prompt Writer",
+  "config": {
+    "prompt": "Write a clear image generation prompt from requirements and reference tags.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.4
+  }
+}

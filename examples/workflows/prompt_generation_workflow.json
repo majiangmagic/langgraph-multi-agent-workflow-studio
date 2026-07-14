@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "kind": "workflow",
+  "name": "prompt_generation_workflow",
+  "entrypoint": "supervisor",
+  "nodes": {
+    "supervisor": {
+      "agent": "official_supervisor",
+      "extension": "supervisor"
+    },
+    "requirement_analyzer": {
+      "agent": "prompt_requirement_analyzer",
+      "agent_package": "prompt_generation/requirement_analyzer"
+    },
+    "danbooru_query": {
+      "agent": "prompt_danbooru_query",
+      "agent_package": "prompt_generation/danbooru_query"
+    },
+    "prompt_writer": {
+      "agent": "prompt_writer",
+      "agent_package": "prompt_generation/prompt_writer"
+    },
+    "prompt_reviewer": {
+      "agent": "prompt_reviewer",
+      "agent_package": "prompt_generation/prompt_reviewer"
+    },
+    "format_converter": {
+      "agent": "prompt_format_converter",
+      "agent_package": "prompt_generation/format_converter"
+    }
+  },
+  "edges": [
+    {
+      "from": "supervisor",
+      "to": "requirement_analyzer"
+    },
+    {
+      "from": "requirement_analyzer",
+      "to": "danbooru_query"
+    },
+    {
+      "from": "danbooru_query",
+      "to": "prompt_writer"
+    },
+    {
+      "from": "prompt_writer",
+      "to": "prompt_reviewer"
+    },
+    {
+      "from": "prompt_reviewer",
+      "to": "format_converter"
+    },
+    {
+      "from": "format_converter",
+      "to": "END"
+    }
+  ]
+}

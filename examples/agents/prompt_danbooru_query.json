@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "kind": "agent",
+  "name": "prompt_danbooru_query",
+  "package": "prompt_generation/danbooru_query",
+  "display_name": "Danbooru Tag Query Agent",
+  "config": {
+    "prompt": "Map structured image requirements to useful Danbooru-style tags.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.2
+  },
+  "state": {
+    "requirements_json": {
+      "type": "dict",
+      "optional": true
+    },
+    "danbooru_tags": {
+      "type": "list",
+      "optional": true
+    },
+    "tag_notes": {
+      "type": "string",
+      "optional": true
+    }
+  },
+  "entrypoint": "query_tags",
+  "nodes": {
+    "query_tags": {
+      "handler": "query_tags_node"
+    }
+  },
+  "edges": [
+    {
+      "from": "query_tags",
+      "to": "END"
+    }
+  ]
+}

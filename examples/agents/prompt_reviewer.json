@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "kind": "agent",
+  "name": "prompt_reviewer",
+  "package": "prompt_generation/prompt_reviewer",
+  "display_name": "Prompt Reviewer",
+  "config": {
+    "prompt": "Review image generation prompts for clarity, safety, and model usefulness.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.2
+  },
+  "state": {
+    "draft_prompt": {
+      "type": "string",
+      "optional": true
+    },
+    "negative_prompt": {
+      "type": "string",
+      "optional": true
+    },
+    "review_result": {
+      "type": "dict",
+      "optional": true
+    }
+  },
+  "entrypoint": "review",
+  "nodes": {
+    "review": {
+      "handler": "review_node"
+    }
+  },
+  "edges": [
+    {
+      "from": "review",
+      "to": "END"
+    }
+  ]
+}

@@ -3,6 +3,9 @@
 import logging
 from typing import Any, Dict, List, Tuple
 
+from app.core.langgraph.workflows.prompt_generation_workflow import (  # noqa: F401
+    create_prompt_generation_workflow_graph,
+)
 from app.core.langgraph.workflows.registry import workflow_registry
 from app.core.langgraph.workflows.supervisor_simple import (  # noqa: F401
     create_supervisor_simple_graph,

@@ -65,6 +65,7 @@ def test_generate_workflow_writes_to_patched_workflows_dir(tmp_path, monkeypatch
     assert "workflow = StateGraph(ResearchPipelineState)" in graph_text
     assert 'workflow.add_node(\n        "planner",' in graph_text
     assert 'create_official_supervisor_graph()' in graph_text
+    assert "create_official_supervisor_graph(),," not in graph_text
     assert 'extension=create_supervisor_extension("planner")' in graph_text
     assert 'workflow.add_edge("reviewer", END)' in graph_text
     assert 'workflow.set_entry_point("planner")' in graph_text

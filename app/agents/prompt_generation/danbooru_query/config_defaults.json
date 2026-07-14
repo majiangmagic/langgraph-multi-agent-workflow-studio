@@ -1,0 +1,9 @@
+{
+  "name": "prompt_danbooru_query",
+  "display_name": "Danbooru Tag Query Agent",
+  "config": {
+    "prompt": "Map structured image requirements to useful Danbooru-style tags.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.2
+  }
+}

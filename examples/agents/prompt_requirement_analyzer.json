@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "kind": "agent",
+  "name": "prompt_requirement_analyzer",
+  "package": "prompt_generation/requirement_analyzer",
+  "display_name": "Prompt Requirement Analyzer",
+  "config": {
+    "prompt": "Analyze the user's image prompt request and return structured JSON requirements.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.2
+  },
+  "state": {
+    "requirements_json": {
+      "type": "dict",
+      "optional": true
+    }
+  },
+  "entrypoint": "analyze",
+  "nodes": {
+    "analyze": {
+      "handler": "analyze_node"
+    }
+  },
+  "edges": [
+    {
+      "from": "analyze",
+      "to": "END"
+    }
+  ]
+}

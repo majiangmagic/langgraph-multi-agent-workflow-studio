@@ -1,0 +1,9 @@
+{
+  "name": "prompt_format_converter",
+  "display_name": "Prompt Format Converter",
+  "config": {
+    "prompt": "Convert reviewed prompts into model-specific prompt formats.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.2
+  }
+}

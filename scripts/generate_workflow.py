@@ -321,7 +321,7 @@ def render_node_call(
     extension_by_node: Dict[str, str],
 ) -> str:
     extension = (
-        f',\n            extension={extension_by_node[node.name]}("{node.name}"),'
+        f'\n            extension={extension_by_node[node.name]}("{node.name}"),'
         if node.name in extension_by_node
         else ""
     )

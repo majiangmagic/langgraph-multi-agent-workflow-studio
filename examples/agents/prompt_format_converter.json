@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "kind": "agent",
+  "name": "prompt_format_converter",
+  "package": "prompt_generation/format_converter",
+  "display_name": "Prompt Format Converter",
+  "config": {
+    "prompt": "Convert reviewed prompts into model-specific prompt formats.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.2
+  },
+  "state": {
+    "draft_prompt": {
+      "type": "string",
+      "optional": true
+    },
+    "negative_prompt": {
+      "type": "string",
+      "optional": true
+    },
+    "target_model": {
+      "type": "string",
+      "optional": true
+    },
+    "formatted_prompt": {
+      "type": "string",
+      "optional": true
+    },
+    "final_output": {
+      "type": "dict",
+      "optional": true
+    }
+  },
+  "entrypoint": "convert",
+  "nodes": {
+    "convert": {
+      "handler": "convert_node"
+    }
+  },
+  "edges": [
+    {
+      "from": "convert",
+      "to": "END"
+    }
+  ]
+}

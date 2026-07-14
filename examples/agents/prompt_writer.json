@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "kind": "agent",
+  "name": "prompt_writer",
+  "package": "prompt_generation/prompt_writer",
+  "display_name": "Prompt Writer",
+  "config": {
+    "prompt": "Write a clear image generation prompt from requirements and reference tags.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.4
+  },
+  "state": {
+    "requirements_json": {
+      "type": "dict",
+      "optional": true
+    },
+    "danbooru_tags": {
+      "type": "list",
+      "optional": true
+    },
+    "draft_prompt": {
+      "type": "string",
+      "optional": true
+    },
+    "negative_prompt": {
+      "type": "string",
+      "optional": true
+    }
+  },
+  "entrypoint": "write_prompt",
+  "nodes": {
+    "write_prompt": {
+      "handler": "write_prompt_node"
+    }
+  },
+  "edges": [
+    {
+      "from": "write_prompt",
+      "to": "END"
+    }
+  ]
+}

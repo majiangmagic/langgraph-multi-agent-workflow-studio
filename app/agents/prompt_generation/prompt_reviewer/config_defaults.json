@@ -1,0 +1,9 @@
+{
+  "name": "prompt_reviewer",
+  "display_name": "Prompt Reviewer",
+  "config": {
+    "prompt": "Review image generation prompts for clarity, safety, and model usefulness.",
+    "model": "openai/gpt-4.1",
+    "temperature": 0.2
+  }
+}
