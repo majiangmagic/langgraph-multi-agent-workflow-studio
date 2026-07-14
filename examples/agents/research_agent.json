@@ -2,6 +2,7 @@
   "version": 1,
   "kind": "agent",
   "name": "research_agent",
+  "package": "research/research_agent",
   "display_name": "Research Agent",
   "config": {
     "prompt": "You are a research agent. Search carefully and summarize useful findings.",

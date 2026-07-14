@@ -81,6 +81,22 @@ app/agents/
 app/agents/official_supervisor/
 ```
 
+Agent 可以按目录分组。`name` 是数据库和 workflow 使用的逻辑名，`package` 是代码所在目录：
+
+```json
+{
+  "kind": "agent",
+  "name": "research_agent",
+  "package": "research/research_agent"
+}
+```
+
+生成后目录为：
+
+```text
+app/agents/research/research_agent/
+```
+
 Agent 配置来自数据库，workflow 运行时会把对应配置注入到节点 state：
 
 ```python
@@ -108,6 +124,29 @@ Workflow 示例：
 ```bash
 python scripts/generate_workflow.py examples/workflows/research_pipeline.json
 ```
+
+Workflow 节点可以通过 `agent_package` 引用分组 Agent：
+
+```json
+{
+  "researcher": {
+    "agent": "research_agent",
+    "agent_package": "research/research_agent"
+  }
+}
+```
+
+也可以使用简写：
+
+```json
+{
+  "researcher": {
+    "agent": "research/research_agent"
+  }
+}
+```
+
+两种写法都会把节点状态里的 Agent 名保持为 `research_agent`。
 
 生成器输出的是可读、可改、可继续维护的 Python 代码。
 

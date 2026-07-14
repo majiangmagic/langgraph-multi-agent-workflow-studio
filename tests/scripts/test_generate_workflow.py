@@ -35,6 +35,7 @@ def test_generate_workflow_writes_to_patched_workflows_dir(tmp_path, monkeypatch
                     },
                     "researcher": {
                         "agent": "research_agent",
+                        "agent_package": "research/research_agent",
                     },
                     "reviewer": {
                         "agent": "official_supervisor",
@@ -67,7 +68,11 @@ def test_generate_workflow_writes_to_patched_workflows_dir(tmp_path, monkeypatch
     assert 'extension=create_supervisor_extension("planner")' in graph_text
     assert 'workflow.add_edge("reviewer", END)' in graph_text
     assert 'workflow.set_entry_point("planner")' in graph_text
-    assert "create_research_agent_graph" in graph_text
+    assert (
+        "from app.agents.research.research_agent.graph "
+        "import create_graph as create_research_research_agent_graph"
+    ) in graph_text
+    assert "create_research_research_agent_graph()" in graph_text
     assert "ResearchPipelineState = WorkflowState" in state_text
     assert '"planner": "official_supervisor"' in state_text
     assert '"researcher": "research_agent"' in state_text
@@ -100,3 +105,38 @@ def test_generate_workflow_rejects_edges_to_missing_nodes(tmp_path, monkeypatch)
 
     assert generate_workflow.main([str(dsl_path)]) == 1
     assert not workflows_dir.exists()
+
+
+def test_generate_workflow_accepts_agent_path_as_package(tmp_path, monkeypatch):
+    """A workflow node can use agent: group/name as a shorthand package path."""
+
+    workflows_dir = tmp_path / "workflows"
+    monkeypatch.setattr(generate_workflow, "WORKFLOWS_DIR", workflows_dir)
+
+    dsl_path = tmp_path / "workflow.json"
+    dsl_path.write_text(
+        json.dumps(
+            {
+                "kind": "workflow",
+                "name": "grouped_workflow",
+                "entrypoint": "researcher",
+                "nodes": {
+                    "researcher": {"agent": "research/research_agent"},
+                },
+                "edges": [{"from": "researcher", "to": "END"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert generate_workflow.main([str(dsl_path)]) == 0
+    graph_text = (workflows_dir / "grouped_workflow" / "graph.py").read_text(
+        encoding="utf-8"
+    )
+    state_text = (workflows_dir / "grouped_workflow" / "state.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "from app.agents.research.research_agent.graph import" in graph_text
+    assert "create_research_research_agent_graph()" in graph_text
+    assert '"researcher": "research_agent"' in state_text

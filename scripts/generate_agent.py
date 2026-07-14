@@ -35,6 +35,7 @@ class EdgeDsl:
 @dataclass(frozen=True)
 class AgentDsl:
     name: str
+    package_segments: List[str]
     display_name: str
     state_class: str
     config: Dict[str, Any]
@@ -60,6 +61,42 @@ def pascal_case(value: str) -> str:
     """Convert a DSL identifier to a Python class name fragment."""
 
     return "".join(part.capitalize() for part in snake_case(value).split("_"))
+
+
+def parse_package_segments(raw_package: Any, agent_name: str) -> List[str]:
+    """Parse an agent package path under app/agents."""
+
+    if raw_package in (None, ""):
+        return [agent_name]
+
+    raw_text = str(raw_package).strip()
+    raw_parts = [part for part in re.split(r"[/\\.]+", raw_text) if part.strip()]
+    if (
+        raw_text.startswith(("/", "\\", "."))
+        or ".." in raw_text
+        or re.match(r"^[a-zA-Z]:", raw_text)
+    ):
+        raise ValueError("agent.package must be a relative path under app/agents")
+
+    parts = [
+        snake_case(part)
+        for part in raw_parts
+    ]
+    if not parts:
+        raise ValueError("agent.package cannot be empty")
+    return parts
+
+
+def package_import_path(agent: AgentDsl) -> str:
+    """Return the import path for this agent package."""
+
+    return "app.agents." + ".".join(agent.package_segments)
+
+
+def package_display_path(agent: AgentDsl) -> str:
+    """Return the display path for generated output."""
+
+    return "app/agents/" + "/".join(agent.package_segments)
 
 
 def load_dsl(path: Path) -> Dict[str, Any]:
@@ -145,6 +182,7 @@ def parse_agent_dsl(data: Dict[str, Any]) -> AgentDsl:
 
     return AgentDsl(
         name=name,
+        package_segments=parse_package_segments(data.get("package"), name),
         display_name=str(data.get("display_name") or name.replace("_", " ").title()),
         state_class=str(data.get("state_schema") or f"{pascal_case(name)}State"),
         config=dict(data.get("config") or {}),
@@ -198,12 +236,13 @@ def python_type(field: Dict[str, Any]) -> str:
 
 
 def render_init(agent: AgentDsl) -> str:
+    import_path = package_import_path(agent)
     return f'''"""Public API for the {agent.name} agent."""
 
 
 def __getattr__(name: str):
     if name == "create_graph":
-        from app.agents.{agent.name}.graph import create_graph
+        from {import_path}.graph import create_graph
 
         return create_graph
     raise AttributeError(name)
@@ -217,10 +256,11 @@ __all__ = [
 
 def render_graph(agent: AgentDsl) -> str:
     constant = f"{agent.name.upper()}_AGENT_NAME"
+    import_path = package_import_path(agent)
     return f'''"""Graph factory for the {agent.name} agent."""
 
 from app.agents.declarative import compile_agent_definition
-from app.agents.{agent.name}.spec import AGENT_DEFINITION, {constant}
+from {import_path}.spec import AGENT_DEFINITION, {constant}
 from app.agents.registry import agent_registry
 
 
@@ -237,6 +277,7 @@ agent_registry.register({constant}, create_graph)
 def render_spec(agent: AgentDsl, handler_names: Dict[str, str]) -> str:
     constant = f"{agent.name.upper()}_AGENT_NAME"
     node_constant = f"{agent.name.upper()}_ENTRYPOINT"
+    import_path = package_import_path(agent)
     imports = ", ".join(handler_names[node.name] for node in agent.nodes)
     node_factories = "\n".join(
         f'''
@@ -263,8 +304,8 @@ def create_{node.name}_node():
 from langgraph.graph import END
 
 from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
-from app.agents.{agent.name}.nodes import {imports}
-from app.agents.{agent.name}.state import {agent.state_class}
+from {import_path}.nodes import {imports}
+from {import_path}.state import {agent.state_class}
 
 {constant} = "{agent.name}"
 {node_constant} = "{agent.entrypoint}"
@@ -345,13 +386,14 @@ def render_nodes(agent: AgentDsl, existing_blocks: Dict[str, str]) -> tuple[str,
             handler_names[node.name] = node.handler
             blocks.append(render_new_node_block(agent, node))
 
+    import_path = package_import_path(agent)
     text = f'''"""Business nodes for the {agent.name} agent."""
 
 from typing import Any, Dict
 
 from langchain_core.runnables import RunnableConfig
 
-from app.agents.{agent.name}.state import {agent.state_class}
+from {import_path}.state import {agent.state_class}
 
 # 本文件由 scripts/generate_agent.py 刷新骨架。
 # 中文注意：
@@ -366,8 +408,14 @@ from app.agents.{agent.name}.state import {agent.state_class}
 def write_agent(agent: AgentDsl) -> None:
     """Write generated files for an agent DSL."""
 
-    agent_dir = AGENTS_DIR / agent.name
+    agent_dir = AGENTS_DIR.joinpath(*agent.package_segments)
     agent_dir.mkdir(parents=True, exist_ok=True)
+    current_dir = AGENTS_DIR
+    for segment in agent.package_segments[:-1]:
+        current_dir = current_dir / segment
+        init_path = current_dir / "__init__.py"
+        if not init_path.exists():
+            init_path.write_text('"""Agent package group."""\n', encoding="utf-8")
 
     nodes_path = agent_dir / "nodes.py"
     existing_blocks = read_existing_node_blocks(nodes_path)
@@ -408,7 +456,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         print(f"generate_agent failed: {exc}", file=sys.stderr)
         return 1
 
-    print(f"Generated agent skeleton: app/agents/{agent.name}")
+    print(f"Generated agent skeleton: {package_display_path(agent)}")
     return 0
 
 

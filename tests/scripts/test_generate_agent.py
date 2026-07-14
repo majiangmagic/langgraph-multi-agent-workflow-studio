@@ -119,3 +119,40 @@ def test_generate_agent_deletes_blocks_missing_from_new_dsl(tmp_path, monkeypatc
     assert '<agent-node name="first">' not in refreshed
     assert "delete me" not in refreshed
     assert '<agent-node name="second">' in refreshed
+
+
+def test_generate_agent_supports_grouped_package(tmp_path, monkeypatch):
+    """Agent implementations can live under app/agents/<group>/<agent>."""
+
+    agents_dir = tmp_path / "agents"
+    monkeypatch.setattr(generate_agent, "AGENTS_DIR", agents_dir)
+
+    dsl_path = tmp_path / "agent.json"
+    dsl_path.write_text(
+        json.dumps(
+            {
+                "kind": "agent",
+                "name": "research_agent",
+                "package": "research/research_agent",
+                "entrypoint": "search",
+                "nodes": {"search": {"handler": "search_node"}},
+                "edges": [{"from": "search", "to": "END"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert generate_agent.main([str(dsl_path)]) == 0
+    agent_dir = agents_dir / "research" / "research_agent"
+
+    assert agent_dir.exists()
+    assert (agents_dir / "research" / "__init__.py").exists()
+    assert "from app.agents.research.research_agent.spec import" in (
+        agent_dir / "graph.py"
+    ).read_text(encoding="utf-8")
+    assert "from app.agents.research.research_agent.state import" in (
+        agent_dir / "nodes.py"
+    ).read_text(encoding="utf-8")
+    assert '"name": "research_agent"' in (
+        agent_dir / "config_defaults.json"
+    ).read_text(encoding="utf-8")

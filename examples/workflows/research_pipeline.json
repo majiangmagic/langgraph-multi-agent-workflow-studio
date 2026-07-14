@@ -9,7 +9,8 @@
       "extension": "supervisor"
     },
     "researcher": {
-      "agent": "research_agent"
+      "agent": "research_agent",
+      "agent_package": "research/research_agent"
     },
     "reviewer": {
       "agent": "official_supervisor",

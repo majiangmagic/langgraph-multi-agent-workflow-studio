@@ -19,6 +19,7 @@ WORKFLOWS_DIR = ROOT / "app" / "core" / "langgraph" / "workflows"
 class WorkflowNodeDsl:
     name: str
     agent: str
+    agent_package_segments: List[str]
     state_agent: Optional[str]
     extension: Optional[str]
 
@@ -56,6 +57,48 @@ def pascal_case(value: str) -> str:
     return "".join(part.capitalize() for part in snake_case(value).split("_"))
 
 
+def parse_package_segments(raw_package: Any, agent_name: str) -> List[str]:
+    """Parse an agent package path under app/agents."""
+
+    if raw_package in (None, ""):
+        return [agent_name]
+
+    raw_text = str(raw_package).strip()
+    raw_parts = [part for part in re.split(r"[/\\.]+", raw_text) if part.strip()]
+    if (
+        raw_text.startswith(("/", "\\", "."))
+        or ".." in raw_text
+        or re.match(r"^[a-zA-Z]:", raw_text)
+    ):
+        raise ValueError("agent package must be a relative path under app/agents")
+
+    parts = [
+        snake_case(part)
+        for part in raw_parts
+    ]
+    if not parts:
+        raise ValueError("agent package cannot be empty")
+    return parts
+
+
+def raw_agent_looks_like_package(raw_agent: str) -> bool:
+    """Return whether an agent value includes a filesystem-style package."""
+
+    return "/" in raw_agent or "\\" in raw_agent
+
+
+def agent_import_path(node: WorkflowNodeDsl) -> str:
+    """Return the Python import path for a workflow node's agent."""
+
+    return "app.agents." + ".".join(node.agent_package_segments)
+
+
+def agent_graph_factory_alias(node: WorkflowNodeDsl) -> str:
+    """Return a collision-resistant graph factory alias for imports."""
+
+    return "create_" + "_".join(node.agent_package_segments) + "_graph"
+
+
 def load_dsl(path: Path) -> Dict[str, Any]:
     """Load JSON or YAML DSL data."""
 
@@ -89,13 +132,24 @@ def parse_nodes(raw_nodes: Any) -> List[WorkflowNodeDsl]:
     for raw_name, raw_node in items:
         node_config = dict(raw_node or {})
         name = snake_case(str(raw_name))
-        agent = snake_case(str(node_config.get("agent") or name))
+        raw_agent = str(node_config.get("agent") or name)
+        agent = (
+            snake_case(re.split(r"[/\\]+", raw_agent.strip())[-1])
+            if raw_agent_looks_like_package(raw_agent)
+            else snake_case(raw_agent)
+        )
+        raw_package = (
+            node_config.get("agent_package")
+            or node_config.get("package")
+            or (raw_agent if raw_agent_looks_like_package(raw_agent) else None)
+        )
         state_agent = node_config.get("state_agent")
         extension = node_config.get("extension")
         nodes.append(
             WorkflowNodeDsl(
                 name=name,
                 agent=agent,
+                agent_package_segments=parse_package_segments(raw_package, agent),
                 state_agent=snake_case(str(state_agent)) if state_agent else None,
                 extension=snake_case(str(extension)) if extension else None,
             )
@@ -175,10 +229,7 @@ __all__ = [
 
 def render_graph(workflow: WorkflowDsl) -> str:
     factory_name = f"create_{workflow.name}_graph"
-    agent_imports = "\n".join(
-        f"from app.agents.{agent}.graph import create_graph as create_{agent}_graph"
-        for agent in sorted({node.agent for node in workflow.nodes})
-    )
+    agent_imports = render_agent_imports(workflow)
     extension_import_text, extension_by_node = extension_imports(workflow)
     node_calls = "\n".join(render_node_call(node, extension_by_node) for node in workflow.nodes)
     edge_calls = "\n".join(
@@ -252,6 +303,19 @@ def extension_imports(workflow: WorkflowDsl) -> tuple[str, Dict[str, str]]:
     return "\n".join(sorted(set(imports))), mapping
 
 
+def render_agent_imports(workflow: WorkflowDsl) -> str:
+    """Render graph factory imports for all agent packages used by a workflow."""
+
+    imports = {
+        tuple(node.agent_package_segments): (
+            f"from {agent_import_path(node)}.graph "
+            f"import create_graph as {agent_graph_factory_alias(node)}"
+        )
+        for node in workflow.nodes
+    }
+    return "\n".join(imports[key] for key in sorted(imports))
+
+
 def render_node_call(
     node: WorkflowNodeDsl,
     extension_by_node: Dict[str, str],
@@ -265,7 +329,7 @@ def render_node_call(
         "{node.name}",
         create_agent_node(
             "{node.name}",
-            create_{node.agent}_graph(),{extension}
+            {agent_graph_factory_alias(node)}(),{extension}
         ),
     )'''
 
