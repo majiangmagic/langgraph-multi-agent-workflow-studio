@@ -3,14 +3,14 @@ requires = ["setuptools>=42.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "langgraph_multiagent_boilerplate"
+name = "agent_workflow_kit"
 version = "0.1.0"
-description = "A boilerplate for building multi-agent AI clusters using LangGraph"
+description = "A FastAPI and LangGraph backend kit for composable agent workflows"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "sesame_paste", email = "you@example.com"}
 ]
 
 [tool.setuptools]
