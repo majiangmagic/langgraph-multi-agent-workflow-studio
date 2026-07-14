@@ -13,6 +13,36 @@ from app.agents.prompt_generation.character_prompt_generator.state import Charac
 # - 新 DSL 删除某个节点名时，对应代码块会被删除，不会因为里面有人写过代码而保留。
 
 # <agent-node name="generate_character_prompt">
+def _normalized_tag(value: Any) -> str:
+    return "_".join(str(value or "").strip().lower().split())
+
+
+def _identity_tags(requirements: Dict[str, Any]) -> tuple[bool, set[str]]:
+    identities = requirements.get("character_identities") or []
+    tags = {
+        _normalized_tag(item.get("danbooru_tag"))
+        for item in identities
+        if isinstance(item, dict) and item.get("danbooru_tag")
+    }
+    return bool(identities), {tag for tag in tags if tag}
+
+
+def filter_character_records(
+    records: list[Dict[str, Any]], requirements: Dict[str, Any]
+) -> list[Dict[str, Any]]:
+    """Reject character-category tags that conflict with the identity contract."""
+
+    has_identities, allowed_identity_tags = _identity_tags(requirements)
+    if not has_identities:
+        return records
+    return [
+        record
+        for record in records
+        if int(record.get("category", 0) or 0) != 4
+        or _normalized_tag(record.get("name")) in allowed_identity_tags
+    ]
+
+
 async def generate_character_prompt_node(
     state: CharacterPromptGeneratorState,
     config: RunnableConfig | None = None,
@@ -27,6 +57,7 @@ async def generate_character_prompt_node(
     )
 
     terms, records = await lookup_for_generator(state, "character")
+    records = filter_character_records(records, state.get("requirements_json") or {})
     tags = verified_tags_from_records(records)
     return {
         "character_prompt": ", ".join(tags),

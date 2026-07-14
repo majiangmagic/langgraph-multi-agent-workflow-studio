@@ -9,14 +9,15 @@
     "input_placeholder": "描述人物、场景、画风、构图或负面要求……",
     "input_hint": "未写明模型时使用 NAI 风格",
     "target_models": [
-      { "value": "nai", "label": "NAI 默认风格" },
+      { "value": "nai_v4", "label": "NAI V4（标签 + 英文关系描述）" },
+      { "value": "nai_v3", "label": "NAI V3（标签优先）" },
       { "value": "sdxl", "label": "SDXL" },
       { "value": "illustrious", "label": "Illustrious / 光辉" },
       { "value": "pony", "label": "Pony" },
       { "value": "flux", "label": "Flux" },
       { "value": "auto", "label": "从需求识别" }
     ],
-    "default_target_model": "nai"
+    "default_target_model": "nai_v4"
   },
   "nodes": {
     "supervisor": {

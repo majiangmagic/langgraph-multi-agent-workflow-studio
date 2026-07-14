@@ -17,16 +17,25 @@ from typing import Iterable, List
 
 
 MODEL_ALIASES = {
-    "novelai": "nai",
-    "nai4": "nai",
-    "nai v4": "nai",
+    "nai": "nai_v4",
+    "novelai": "nai_v4",
+    "nai4": "nai_v4",
+    "nai v4": "nai_v4",
+    "nai_v4": "nai_v4",
+    "nai3": "nai_v3",
+    "nai v3": "nai_v3",
+    "nai_v3": "nai_v3",
     "stable diffusion xl": "sdxl",
     "光辉": "illustrious",
     "光輝": "illustrious",
 }
 
 MODEL_DEFAULTS = {
-    "nai": {
+    "nai_v4": {
+        "positive": ["masterpiece", "best quality", "very aesthetic"],
+        "negative": ["lowres", "bad anatomy", "bad hands", "text", "error"],
+    },
+    "nai_v3": {
         "positive": ["masterpiece", "best quality", "very aesthetic"],
         "negative": ["lowres", "bad anatomy", "bad hands", "text", "error"],
     },
@@ -47,8 +56,8 @@ MODEL_DEFAULTS = {
 
 
 def normalize_model(value: Any) -> str:
-    model = str(value or "nai").strip().lower()
-    return MODEL_ALIASES.get(model, model if model in MODEL_DEFAULTS else "nai")
+    model = str(value or "nai_v4").strip().lower()
+    return MODEL_ALIASES.get(model, model if model in MODEL_DEFAULTS else "nai_v4")
 
 
 def merge_terms(*groups: Iterable[Any]) -> List[str]:
@@ -67,8 +76,16 @@ def merge_terms(*groups: Iterable[Any]) -> List[str]:
 
 
 def render_output(model: str, positive: str, negative: str, source_count: int) -> str:
+    display_name = {
+        "nai_v4": "NAI V4",
+        "nai_v3": "NAI V3",
+        "sdxl": "SDXL",
+        "illustrious": "Illustrious",
+        "pony": "Pony",
+        "flux": "Flux",
+    }.get(model, model.upper())
     return (
-        f"目标模型：{model.upper()}\n\n"
+        f"目标模型：{display_name}\n\n"
         f"正向提示词\n{positive or '未找到可用标签'}\n\n"
         f"负向提示词\n{negative or '无'}\n\n"
         f"Danbooru 来源标签：{source_count} 个"
@@ -86,9 +103,21 @@ def optimize_format_node(
     requirements = state.get("requirements_json") or {}
     model = normalize_model(state.get("target_model") or requirements.get("target_model"))
     defaults = MODEL_DEFAULTS[model]
-    draft = str(state.get("draft_prompt") or "")
+    sections = state.get("prompt_sections") or {}
+    verified_tags = merge_terms(
+        sections.get("character") or [],
+        sections.get("scene") or [],
+        sections.get("additional") or [],
+    )
+    descriptive_phrases = merge_terms(sections.get("descriptive_phrases") or [])
     negative = str(state.get("negative_prompt") or "")
-    positive_terms = merge_terms(defaults["positive"], [draft])
+    if model == "nai_v3":
+        content_terms = verified_tags
+    elif model in {"sdxl", "flux"}:
+        content_terms = merge_terms(descriptive_phrases, verified_tags)
+    else:
+        content_terms = merge_terms(verified_tags, descriptive_phrases)
+    positive_terms = merge_terms(defaults["positive"], content_terms)
     negative_terms = merge_terms(defaults["negative"], [negative])
 
     if model == "flux":
@@ -102,7 +131,7 @@ def optimize_format_node(
         "target_model": model,
         "positive_prompt": positive,
         "negative_prompt": negative_prompt,
-        "sections": state.get("prompt_sections") or {},
+        "sections": sections,
         "danbooru_tag_records": records,
         "consistency_report": state.get("consistency_report") or {},
         "request_contract": requirements.get("request_contract") or {},

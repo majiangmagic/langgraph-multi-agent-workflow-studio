@@ -50,7 +50,7 @@ def test_workflow_options_endpoint_lists_registered_workflows():
         "prompt_aggregator",
         "format_optimizer",
     }
-    assert prompt_workflow["ui"]["default_target_model"] == "nai"
+    assert prompt_workflow["ui"]["default_target_model"] == "nai_v4"
 
 
 @pytest.mark.asyncio

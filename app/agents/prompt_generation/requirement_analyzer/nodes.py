@@ -18,20 +18,56 @@ import re
 
 
 def detect_target_model(text: str) -> str:
-    """Detect explicit model requests, defaulting to the NAI tag style."""
+    """Detect explicit model requests, defaulting to NAI V4."""
 
     lowered = text.lower()
     if "illustrious" in lowered or "光辉" in text or "光輝" in text:
         return "illustrious"
     if "sdxl" in lowered or "stable diffusion xl" in lowered:
         return "sdxl"
+    if re.search(r"(?:novelai|nai)[\s_-]*(?:v?3|3)\b", lowered):
+        return "nai_v3"
+    if re.search(r"(?:novelai|nai)[\s_-]*(?:v?4|4)\b", lowered):
+        return "nai_v4"
     if "novelai" in lowered or re.search(r"\bnai\b", lowered):
-        return "nai"
+        return "nai_v4"
     if "pony" in lowered:
         return "pony"
     if "flux" in lowered:
         return "flux"
-    return "nai"
+    return "nai_v4"
+
+
+def normalize_character_identities(value: Any) -> list[Dict[str, str]]:
+    """Normalize named-character identity data returned by the model."""
+
+    if not isinstance(value, list):
+        return []
+    identities = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        identity = {
+            "original_name": str(item.get("original_name") or "").strip(),
+            "canonical_name": str(item.get("canonical_name") or "").strip(),
+            "series": str(item.get("series") or "").strip(),
+            "danbooru_tag": str(item.get("danbooru_tag") or "").strip().lower(),
+        }
+        if identity["original_name"]:
+            identities.append(identity)
+    return identities
+
+
+def validated_identity_tag(identity: Dict[str, str]) -> str:
+    """Accept only a qualified tag consistent with the canonical identity name."""
+
+    tag = re.sub(r"\s+", "_", identity.get("danbooru_tag", "").strip().lower())
+    canonical = re.sub(
+        r"[^a-z0-9]+", "_", identity.get("canonical_name", "").strip().lower()
+    ).strip("_")
+    if not tag or not canonical or not tag.startswith(f"{canonical}_("):
+        return ""
+    return tag if tag.endswith(")") else ""
 
 
 def strip_target_model_directive(text: str) -> str:
@@ -137,6 +173,7 @@ async def analyze_node(
         "composition": "",
         "positive_phrases": [],
         "negative_phrases": [],
+        "character_identities": [],
         "character_tag_candidates": [],
         "scene_tag_candidates": [],
         "additional_tag_candidates": [],
@@ -161,6 +198,7 @@ async def analyze_node(
         "The request contract is the sole source of truth. Do not reinterpret any "
         "conversation history or edit wording. Convert it into one JSON object with "
         "character, scene, style, composition, positive_phrases, negative_phrases, "
+        "character_identities, "
         "character_tag_candidates, scene_tag_candidates, additional_tag_candidates, "
         "and target_model. The phrase fields must be arrays of "
         "concise, prompt-ready English visual phrases. Preserve every required "
@@ -169,6 +207,14 @@ async def analyze_node(
         "never become positive visual content. Tag candidate fields must contain only "
         "concise Danbooru-style names directly supported by the request. Never infer "
         "unmentioned anatomy, identities, actions, absences, defects, or franchises. "
+        "For every explicitly named fictional character, character_identities must "
+        "contain original_name, canonical_name, series, and danbooru_tag. Resolve the "
+        "official/common English character name and franchise; danbooru_tag must be "
+        "the canonical qualified character tag in name_(series) form. Never substitute "
+        "a different romanized name merely because that tag exists. If uncertain, "
+        "leave danbooru_tag empty instead of guessing. Represent a named character's "
+        "identity with danbooru_tag; positive_phrases should describe visual relations "
+        "using 'the character' rather than respelling the character name. "
         "Do not return or rewrite resolved_request."
     )
     analysis_input = (
@@ -194,6 +240,7 @@ async def analyze_node(
             "composition",
             "positive_phrases",
             "negative_phrases",
+            "character_identities",
             "character_tag_candidates",
             "scene_tag_candidates",
             "additional_tag_candidates",
@@ -228,18 +275,26 @@ async def analyze_node(
     requirements["positive_phrases"] = positive_phrases
     requirements["negative_phrases"] = negative_phrases
     requirements["negative"] = requirements["negative_phrases"]
+    identities = normalize_character_identities(requirements.get("character_identities"))
+    for identity in identities:
+        identity["danbooru_tag"] = validated_identity_tag(identity)
+    requirements["character_identities"] = identities
+    identity_tags = [item["danbooru_tag"] for item in identities if item["danbooru_tag"]]
     for key in (
         "character_tag_candidates",
         "scene_tag_candidates",
         "additional_tag_candidates",
     ):
         requirements[key] = unique_text_list(requirements.get(key))
+    requirements["character_tag_candidates"] = unique_text_list(
+        identity_tags, requirements.get("character_tag_candidates")
+    )
     requirements["latest_user_input"] = semantic_user_input
     requirements["raw_request"] = request_to_analyze
     requirements["resolved_request"] = request_to_analyze
     requirements["request_contract"] = request_contract
     explicit_model = detect_target_model(user_input)
-    requirements["target_model"] = explicit_model or "nai"
+    requirements["target_model"] = explicit_model or "nai_v4"
     return {
         "requirements_json": requirements,
         "messages": [

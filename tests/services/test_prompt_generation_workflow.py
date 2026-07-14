@@ -4,7 +4,14 @@ from langchain_core.messages import AIMessage, HumanMessage
 import pytest
 
 from app.agents.prompt_generation.natural_language_editor.nodes import resolve_node
-from app.agents.prompt_generation.requirement_analyzer.nodes import analyze_node
+from app.agents.prompt_generation.requirement_analyzer.nodes import (
+    analyze_node,
+    detect_target_model,
+)
+from app.agents.prompt_generation.character_prompt_generator.nodes import (
+    filter_character_records,
+)
+from app.agents.prompt_generation.format_optimizer.nodes import optimize_format_node
 from app.agents.prompt_generation.prompt_aggregator.nodes import aggregate_prompt_node
 from app.agents.prompt_generation.danbooru import (
     generate_search_terms,
@@ -40,6 +47,12 @@ def prompt_generation_agents():
         }
         for name in names
     ]
+
+
+def test_nai_version_detection_accepts_ui_and_natural_language_forms():
+    assert detect_target_model("目标模型：nai_v3") == "nai_v3"
+    assert detect_target_model("use NAI V4") == "nai_v4"
+    assert detect_target_model("未指定模型") == "nai_v4"
 
 
 def patch_model_nodes(monkeypatch, records_by_focus):
@@ -126,7 +139,7 @@ async def test_prompt_workflow_queries_inside_parallel_generators(monkeypatch):
         "breasts, bedroom, from_below"
     )
     final = nodes["format_optimizer"]["final_output"]
-    assert final["target_model"] == "nai"
+    assert final["target_model"] == "nai_v4"
     assert final["positive_prompt"].startswith("masterpiece, best quality")
     assert len(final["danbooru_tag_records"]) == 3
 
@@ -158,7 +171,7 @@ async def test_supervisor_failure_does_not_abort_deterministic_pipeline(monkeypa
 
     assert result["nodes"]["supervisor"]["status"] == "error"
     assert "temporary supervisor provider failure" in result["nodes"]["supervisor"]["error"]
-    assert result["nodes"]["format_optimizer"]["final_output"]["target_model"] == "nai"
+    assert result["nodes"]["format_optimizer"]["final_output"]["target_model"] == "nai_v4"
 
 
 @pytest.mark.asyncio
@@ -611,6 +624,59 @@ def test_only_verified_records_become_final_tags():
     )
 
     assert tags == ["cave"]
+
+
+def test_named_character_identity_rejects_unrelated_existing_character_tag():
+    """An existing Danbooru character tag is not proof that it is the requested person."""
+
+    records = filter_character_records(
+        [
+            {"name": "irena", "category": 4, "post_count": 20},
+            {
+                "name": "elaina_(majo_no_tabitabi)",
+                "category": 4,
+                "post_count": 1000,
+            },
+            {"name": "white_hair", "category": 0, "post_count": 500000},
+        ],
+        {
+            "character_identities": [
+                {
+                    "original_name": "伊蕾娜",
+                    "canonical_name": "Elaina",
+                    "series": "Majo no Tabitabi",
+                    "danbooru_tag": "elaina_(majo_no_tabitabi)",
+                }
+            ]
+        },
+    )
+
+    assert [record["name"] for record in records] == [
+        "elaina_(majo_no_tabitabi)",
+        "white_hair",
+    ]
+
+
+def test_nai_v4_keeps_relations_while_nai_v3_emits_verified_tags_only():
+    base_state = {
+        "requirements_json": {},
+        "prompt_sections": {
+            "character": ["elaina_(majo_no_tabitabi)"],
+            "scene": ["cave"],
+            "additional": [],
+            "descriptive_phrases": ["tentacles continuously extend from the cave walls"],
+        },
+        "negative_prompt": "",
+        "danbooru_tag_records": [],
+    }
+
+    v4 = optimize_format_node({**base_state, "target_model": "nai_v4"})
+    v3 = optimize_format_node({**base_state, "target_model": "nai_v3"})
+
+    assert "elaina_(majo_no_tabitabi)" in v4["formatted_prompt"]
+    assert "tentacles continuously extend from the cave walls" in v4["formatted_prompt"]
+    assert "elaina_(majo_no_tabitabi)" in v3["formatted_prompt"]
+    assert "tentacles continuously extend from the cave walls" not in v3["formatted_prompt"]
 
 
 def test_aggregator_separates_relations_negatives_and_unverified_candidates():
