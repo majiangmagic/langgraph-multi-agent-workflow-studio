@@ -136,6 +136,7 @@ async def build_workflow_for_conversation(
         crew=crew,
         agents=[agent_to_workflow_config(agent) for agent in agents],
         conversation_id=str(conversation.id),
+        user_id=conversation.user_id,
         user_input=user_message.content,
     )
 

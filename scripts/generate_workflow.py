@@ -191,6 +191,7 @@ def render_graph(workflow: WorkflowDsl) -> str:
             "from langgraph.graph import END, StateGraph",
             extension_import_text,
             "from app.core.langgraph.checkpoint import get_checkpointer",
+            "from app.core.langgraph.store import get_store",
             "from app.core.langgraph.workflows.adapters.agent import create_agent_node",
         ]
         if part
@@ -220,7 +221,7 @@ def {factory_name}(
 {node_calls}
 {edge_calls}
     workflow.set_entry_point("{workflow.entrypoint}")
-    return workflow.compile(checkpointer=get_checkpointer())
+    return workflow.compile(checkpointer=get_checkpointer(), store=get_store())
 
 
 workflow_registry.register(
@@ -297,6 +298,7 @@ NODE_AGENTS = {{
 def build_initial_state(
     crew_id: str,
     agents: List[Dict[str, Any]],
+    user_id: str = "",
     conversation_id: str = "",
     messages: Optional[List[BaseMessage]] = None,
     user_input: Optional[str] = None,
@@ -306,6 +308,7 @@ def build_initial_state(
     return build_workflow_initial_state(
         workflow_name=WORKFLOW_NAME,
         node_agents=NODE_AGENTS,
+        user_id=user_id,
         crew_id=crew_id,
         agents=agents,
         conversation_id=conversation_id,

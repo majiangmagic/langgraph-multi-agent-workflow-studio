@@ -192,6 +192,12 @@ class OfficialSupervisorRuntime:
         runtime_to_agent_key: Dict[str, str],
         state: SupervisorState,
     ) -> str:
+        memory_lines = []
+        for memory in state.get("long_term_memories", []):
+            content = memory.get("content") if isinstance(memory, dict) else str(memory)
+            if content:
+                memory_lines.append(f"- {content}")
+
         agent_lines = []
         for runtime_name, agent_key in runtime_to_agent_key.items():
             agent = state["agents"][agent_key]
@@ -209,17 +215,18 @@ class OfficialSupervisorRuntime:
             agent_lines.append(f"- {runtime_name}: " + "; ".join(details))
 
         if not agent_lines:
-            return (
-                f"{self.system_prompt}\n\n"
-                "No delegated agents are currently available. Answer directly."
-            )
+            sections = [self.system_prompt]
+            if memory_lines:
+                sections.append("Long-term memories:\n" + "\n".join(memory_lines))
+            sections.append("No delegated agents are currently available. Answer directly.")
+            return "\n\n".join(sections)
 
-        return (
-            f"{self.system_prompt}\n\n"
-            "Available delegated agents:\n"
-            + "\n".join(agent_lines)
-            + "\n\nOnly delegate when one of these agents is clearly useful."
-        )
+        sections = [self.system_prompt]
+        if memory_lines:
+            sections.append("Long-term memories:\n" + "\n".join(memory_lines))
+        sections.append("Available delegated agents:\n" + "\n".join(agent_lines))
+        sections.append("Only delegate when one of these agents is clearly useful.")
+        return "\n\n".join(sections)
 
     def _map_result(
         self,

@@ -57,6 +57,7 @@ class WorkflowService:
         crew: Crew,
         agents: List[Dict[str, Any]],
         conversation_id: str,
+        user_id: str,
         user_input: str,
     ) -> Dict[str, Any]:
         """Build the configured workflow's initial state from common context."""
@@ -69,6 +70,7 @@ class WorkflowService:
         return state_builder(
             crew_id=str(crew.id),
             agents=agents,
+            user_id=user_id,
             conversation_id=conversation_id,
             user_input=user_input,
         )
@@ -78,6 +80,7 @@ class WorkflowService:
         crew: Crew,
         agents: List[Dict[str, Any]],
         conversation_id: str,
+        user_id: str,
         user_input: str,
     ) -> Tuple[Any, Dict[str, Any]]:
         """Create a workflow and its initial state without exposing state shape."""
@@ -90,6 +93,7 @@ class WorkflowService:
             crew=crew,
             agents=agents,
             conversation_id=conversation_id,
+            user_id=user_id,
             user_input=user_input,
         )
         return workflow, initial_state

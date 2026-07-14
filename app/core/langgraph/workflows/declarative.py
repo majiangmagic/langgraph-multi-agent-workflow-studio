@@ -37,6 +37,7 @@ class WorkflowState(TypedDict):
 
     nodes: Annotated[Dict[str, Dict[str, Any]], merge_node_states]
     agents: Dict[str, Dict[str, Any]]
+    user_id: str
     crew_id: str
     conversation_id: str
     user_input: Optional[str]
@@ -73,6 +74,7 @@ def build_agent_runtime_state(
 def build_workflow_initial_state(
     workflow_name: str,
     node_agents: Mapping[str, str],
+    user_id: str,
     crew_id: str,
     agents: List[Dict[str, Any]],
     conversation_id: str = "",
@@ -113,6 +115,7 @@ def build_workflow_initial_state(
     return {
         "nodes": node_states,
         "agents": agent_catalog,
+        "user_id": user_id,
         "crew_id": crew_id,
         "conversation_id": conversation_id,
         "user_input": user_input,

@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     # Workflow memory settings
     short_term_memory_turns: int = 10
+    long_term_memory_enabled: bool = True
+    long_term_memory_limit: int = 5
     
     # Cloudflare R2 settings
     r2_endpoint: Optional[str] = None

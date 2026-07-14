@@ -9,6 +9,7 @@ from app.agents.official_supervisor.graph import create_official_supervisor_grap
 from langgraph.graph import END, StateGraph
 
 from app.core.langgraph.checkpoint import get_checkpointer
+from app.core.langgraph.store import get_store
 from app.core.langgraph.workflows.adapters.agent import create_agent_node
 from app.core.langgraph.workflows.adapters.supervisor import create_supervisor_extension
 from app.core.langgraph.workflows.registry import workflow_registry
@@ -45,7 +46,7 @@ def create_baseball_analysis_workflow_graph(
     workflow.add_edge("supervisor", "baseball_analyst")
     workflow.add_edge("baseball_analyst", END)
     workflow.set_entry_point("supervisor")
-    return workflow.compile(checkpointer=get_checkpointer())
+    return workflow.compile(checkpointer=get_checkpointer(), store=get_store())
 
 
 workflow_registry.register(

@@ -21,6 +21,7 @@ NODE_AGENTS = {
 def build_initial_state(
     crew_id: str,
     agents: List[Dict[str, Any]],
+    user_id: str = "",
     conversation_id: str = "",
     messages: Optional[List[BaseMessage]] = None,
     user_input: Optional[str] = None,
@@ -30,6 +31,7 @@ def build_initial_state(
     return build_workflow_initial_state(
         workflow_name=WORKFLOW_NAME,
         node_agents=NODE_AGENTS,
+        user_id=user_id,
         crew_id=crew_id,
         agents=agents,
         conversation_id=conversation_id,

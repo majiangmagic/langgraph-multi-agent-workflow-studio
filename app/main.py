@@ -8,6 +8,7 @@ import asyncio
 from app.core.config import settings
 from app.api.routes import conversation, crew
 from app.core.langgraph.checkpoint import close_checkpointer, init_checkpointer
+from app.core.langgraph.store import close_store, init_store
 
 # Create FastAPI app with metadata for OpenAPI/Swagger docs
 app = FastAPI(
@@ -51,12 +52,14 @@ async def startup_event():
     """Run tasks on application startup"""
     # Initialize database connections, caches, etc.
     await init_checkpointer()
+    await init_store()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Run tasks on application shutdown"""
     # Clean up resources
+    await close_store()
     await close_checkpointer()
 
 

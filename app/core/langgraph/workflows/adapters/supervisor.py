@@ -1,9 +1,89 @@
 """Workflow adapter for running the reusable supervisor agent."""
 
+from datetime import UTC, datetime
 from typing import Any, Dict
+from uuid import uuid4
+
+from langgraph.config import get_store as get_runtime_store
 
 from app.agents.official_supervisor.state import DelegatedAgentState, SupervisorState
+from app.core.config import settings
 from app.core.langgraph.workflows.adapters.agent import AgentNodeExtension
+
+
+def memory_namespace(user_id: str) -> tuple[str, ...]:
+    """Return the official LangGraph store namespace for one user's memories."""
+
+    return ("memories", user_id)
+
+
+async def load_supervisor_memories(state: Dict[str, Any]) -> list[Dict[str, Any]]:
+    """Load user-scoped long-term memories for the supervisor."""
+
+    if not settings.long_term_memory_enabled:
+        return []
+
+    user_id = str(state.get("user_id") or "").strip()
+    if not user_id:
+        return []
+
+    try:
+        store = get_runtime_store()
+    except RuntimeError:
+        return []
+
+    if store is None:
+        return []
+
+    items = await store.asearch(
+        memory_namespace(user_id),
+        limit=max(settings.long_term_memory_limit, 0),
+    )
+    return [item.value for item in items]
+
+
+async def save_supervisor_memory(
+    state: Dict[str, Any],
+    supervisor_state: SupervisorState,
+) -> None:
+    """Persist explicit supervisor memory writes to the official store."""
+
+    if not settings.long_term_memory_enabled:
+        return
+
+    memory_write = supervisor_state.get("memory_write")
+    if not isinstance(memory_write, dict):
+        return
+
+    content = str(memory_write.get("content") or "").strip()
+    if not content:
+        return
+
+    user_id = str(state.get("user_id") or "").strip()
+    if not user_id:
+        return
+
+    try:
+        store = get_runtime_store()
+    except RuntimeError:
+        return
+
+    if store is None:
+        return
+
+    conversation_id = str(state.get("conversation_id") or "")
+    key = str(memory_write.get("key") or f"{conversation_id}:supervisor:{uuid4()}")
+    await store.aput(
+        memory_namespace(user_id),
+        key,
+        {
+            "kind": memory_write.get("kind") or "supervisor_memory",
+            "content": content,
+            "conversation_id": conversation_id,
+            "created_at": datetime.now(UTC).isoformat(),
+        },
+        index=False,
+    )
 
 
 def build_workflow_agents(
@@ -46,7 +126,7 @@ def build_workflow_agents(
 def create_supervisor_extension(node_name: str) -> AgentNodeExtension:
     """Create the optional workflow extension for the supervisor agent."""
 
-    def prepare_supervisor_state(state: Dict[str, Any]) -> SupervisorState:
+    async def prepare_supervisor_state(state: Dict[str, Any]) -> SupervisorState:
         """Prepare supervisor state before running the agent graph."""
         supervisor_state = state["nodes"][node_name]
         agents = supervisor_state.get("agents")
@@ -56,15 +136,19 @@ def create_supervisor_extension(node_name: str) -> AgentNodeExtension:
                 node_name,
                 state.get("agents"),
             )
+        memories = await load_supervisor_memories(state)
         return {
             **supervisor_state,
             "agents": agents,
+            "long_term_memories": memories,
         }
 
-    def build_supervisor_update(
+    async def build_supervisor_update(
+        state: Dict[str, Any],
         updated_supervisor_state: SupervisorState,
     ) -> Dict[str, Any]:
         """Write supervisor changes back to workflow state."""
+        await save_supervisor_memory(state, updated_supervisor_state)
         return {
             "nodes": {
                 node_name: updated_supervisor_state,

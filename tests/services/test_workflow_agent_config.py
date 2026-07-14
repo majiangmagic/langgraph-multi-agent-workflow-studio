@@ -1,11 +1,19 @@
 """Tests for preserving agent runtime configuration in workflows."""
 
+import pytest
 from langchain_core.messages import AIMessage
+from langgraph.graph import END, StateGraph
+from langgraph.store.memory import InMemoryStore
 
 from app.agents.official_supervisor.official_runtime import OfficialSupervisorRuntime
-from app.core.langgraph.workflows.adapters.agent import trim_agent_memory
+from app.core.langgraph.workflows.adapters.agent import (
+    create_agent_node,
+    trim_agent_memory,
+)
+from app.core.langgraph.workflows.adapters.supervisor import create_supervisor_extension
 from app.core.langgraph.workflows.declarative import merge_node_states
 from app.core.langgraph.workflows.supervisor_simple.state import (
+    SupervisorSimpleState,
     build_initial_state,
 )
 
@@ -93,6 +101,34 @@ def test_official_supervisor_prompt_includes_worker_instructions():
     assert "model=worker-model" in prompt
 
 
+def test_official_supervisor_prompt_includes_long_term_memories():
+    """Supervisor prompt should expose memories attached from the store."""
+
+    runtime = OfficialSupervisorRuntime(system_prompt="You coordinate this crew.")
+
+    prompt = runtime._build_prompt(
+        {},
+        {
+            **build_initial_state(crew_id="crew-1", agents=[
+                {
+                    "id": "supervisor-1",
+                    "name": "supervisor",
+                    "system_prompt": "You coordinate this crew.",
+                }
+            ])["nodes"]["supervisor"],
+            "agents": {},
+            "long_term_memories": [
+                {
+                    "content": "The user prefers concise engineering explanations.",
+                }
+            ],
+        },
+    )
+
+    assert "Long-term memories:" in prompt
+    assert "The user prefers concise engineering explanations." in prompt
+
+
 def test_checkpointed_supervisor_messages_survive_new_turn_input():
     """A fresh turn should update user_input without clearing checkpoint memory."""
 
@@ -141,3 +177,125 @@ def test_short_term_memory_keeps_last_ten_turns():
     assert trimmed["messages"][0].content == "message-5"
     assert len(trimmed["agents"]["writer"]["messages"]) == 20
     assert trimmed["agents"]["writer"]["messages"][0].content == "message-5"
+
+
+@pytest.mark.asyncio
+async def test_plain_agent_node_does_not_use_long_term_memory_store():
+    """Plain agents should not read or write long-term memory automatically."""
+
+    captured = {}
+
+    class EchoAgent:
+        async def ainvoke(self, state, config=None):
+            captured["memories"] = state.get("long_term_memories")
+            return {
+                **state,
+                "messages": [AIMessage(content="Remembered response")],
+            }
+
+    store = InMemoryStore()
+    await store.aput(
+        ("memories", "user-1"),
+        "memory-1",
+        {"content": "The user likes direct answers."},
+        index=False,
+    )
+
+    workflow = StateGraph(SupervisorSimpleState)
+    workflow.add_node("supervisor", create_agent_node("supervisor", EchoAgent()))
+    workflow.add_edge("supervisor", END)
+    workflow.set_entry_point("supervisor")
+    graph = workflow.compile(store=store)
+
+    await graph.ainvoke(
+        {
+            "nodes": {
+                "supervisor": {
+                    "agent_id": "supervisor-1",
+                    "agent_name": "supervisor",
+                    "messages": [],
+                    "user_input": "Hello",
+                }
+            },
+            "agents": {},
+            "user_id": "user-1",
+            "crew_id": "crew-1",
+            "conversation_id": "conversation-1",
+            "user_input": "Hello",
+        }
+    )
+
+    stored = await store.asearch(("memories", "user-1"), limit=10)
+
+    assert captured["memories"] is None
+    assert len(stored) == 1
+    assert stored[0].value == {"content": "The user likes direct answers."}
+
+
+@pytest.mark.asyncio
+async def test_supervisor_extension_reads_and_explicitly_writes_long_term_memory():
+    """Supervisor extension owns long-term memory context and writes."""
+
+    captured = {}
+
+    class SupervisorAgent:
+        async def ainvoke(self, state, config=None):
+            captured["memories"] = state.get("long_term_memories")
+            return {
+                **state,
+                "messages": [AIMessage(content="Supervisor response")],
+                "memory_write": {
+                    "kind": "user_preference",
+                    "content": "The user likes direct answers.",
+                },
+            }
+
+    store = InMemoryStore()
+    await store.aput(
+        ("memories", "user-1"),
+        "memory-1",
+        {"content": "The user prefers concise explanations."},
+        index=False,
+    )
+
+    workflow = StateGraph(SupervisorSimpleState)
+    workflow.add_node(
+        "supervisor",
+        create_agent_node(
+            "supervisor",
+            SupervisorAgent(),
+            extension=create_supervisor_extension("supervisor"),
+        ),
+    )
+    workflow.add_edge("supervisor", END)
+    workflow.set_entry_point("supervisor")
+    graph = workflow.compile(store=store)
+
+    await graph.ainvoke(
+        {
+            "nodes": {
+                "supervisor": {
+                    "agent_id": "supervisor-1",
+                    "agent_name": "supervisor",
+                    "messages": [],
+                    "user_input": "Hello",
+                }
+            },
+            "agents": {},
+            "user_id": "user-1",
+            "crew_id": "crew-1",
+            "conversation_id": "conversation-1",
+            "user_input": "Hello",
+        }
+    )
+
+    stored = await store.asearch(("memories", "user-1"), limit=10)
+
+    assert captured["memories"] == [
+        {"content": "The user prefers concise explanations."}
+    ]
+    assert any(
+        item.value.get("kind") == "user_preference"
+        and item.value.get("content") == "The user likes direct answers."
+        for item in stored
+    )
