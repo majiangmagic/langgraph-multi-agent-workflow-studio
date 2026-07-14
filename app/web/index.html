@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Workflow Kit</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">AW</div>
+          <div>
+            <h1>Agent Workflow Kit</h1>
+            <p id="status">初始化</p>
+          </div>
+        </div>
+
+        <label class="field">
+          <span>用户</span>
+          <input id="userIdInput" value="local-user" autocomplete="off" />
+        </label>
+
+        <label class="field">
+          <span>工作流</span>
+          <select id="workflowSelect"></select>
+        </label>
+
+        <label class="field">
+          <span>Crew</span>
+          <select id="crewSelect"></select>
+        </label>
+
+        <button id="createCrewButton" class="secondary-button" type="button">创建示例 Crew</button>
+        <button id="newChatButton" class="primary-button" type="button">新对话</button>
+
+        <div class="history-head">
+          <span>历史对话</span>
+          <button id="refreshButton" class="icon-button" type="button" title="刷新">↻</button>
+        </div>
+        <div id="conversationList" class="conversation-list"></div>
+      </aside>
+
+      <section class="chat-panel">
+        <header class="chat-header">
+          <div>
+            <h2 id="chatTitle">选择工作流后开始</h2>
+            <p id="chatMeta">未选择会话</p>
+          </div>
+        </header>
+
+        <div id="messageList" class="message-list"></div>
+
+        <form id="chatForm" class="composer">
+          <textarea id="messageInput" rows="2" placeholder="输入消息"></textarea>
+          <button id="sendButton" type="submit">发送</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

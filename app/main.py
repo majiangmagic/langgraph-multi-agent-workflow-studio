@@ -1,22 +1,23 @@
-"""
-FastAPI main application entry point
-"""
-from fastapi import FastAPI, Depends
+"""FastAPI main application entry point."""
+
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-import asyncio
 
 from app.core.config import settings
-from app.api.routes import conversation, crew
+from app.api.routes import conversation, crew, workflow
 from app.core.langgraph.checkpoint import close_checkpointer, init_checkpointer
 from app.core.langgraph.store import close_store, init_store
 
+WEB_DIR = Path(__file__).resolve().parent / "web"
+
 # Create FastAPI app with metadata for OpenAPI/Swagger docs
 app = FastAPI(
-    title="LangGraph Multi-Agent Boilerplate API",
-    description="""
-    API for the LangGraph Multi-Agent Boilerplate. 
-    Build AI agent clusters with supervisor architecture, MCP tools, and more.
-    """,
+    title="Agent Workflow Kit API",
+    description="API for composable LangGraph agent workflows.",
     version="0.1.0",
     openapi_url="/api/openapi.json",
     docs_url="/api/docs",
@@ -36,6 +37,8 @@ app.add_middleware(
 app.include_router(conversation.chat_router, prefix="/api")
 app.include_router(conversation.router, prefix="/api")
 app.include_router(crew.router, prefix="/api")
+app.include_router(workflow.router, prefix="/api")
+app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
 # Add other routers here as they are implemented
 # app.include_router(mcp_servers_router, prefix="/api")
@@ -45,6 +48,13 @@ app.include_router(crew.router, prefix="/api")
 async def health_check():
     """Health check endpoint to verify the API is running"""
     return {"status": "ok", "version": app.version}
+
+
+@app.get("/", include_in_schema=False)
+async def web_app():
+    """Serve the lightweight chat UI."""
+
+    return FileResponse(WEB_DIR / "index.html")
 
 
 @app.on_event("startup")
