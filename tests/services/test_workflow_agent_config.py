@@ -1,6 +1,7 @@
 """Tests for preserving agent runtime configuration in workflows."""
 
 import pytest
+from types import SimpleNamespace
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.store.memory import InMemoryStore
@@ -8,14 +9,45 @@ from langgraph.store.memory import InMemoryStore
 from app.agents.official_supervisor.official_runtime import OfficialSupervisorRuntime
 from app.core.langgraph.workflows.adapters.agent import (
     create_agent_node,
+    create_pipeline_context_extension,
     trim_agent_memory,
 )
 from app.core.langgraph.workflows.adapters.supervisor import create_supervisor_extension
-from app.core.langgraph.workflows.declarative import merge_node_states
+from app.core.langgraph.workflows.declarative import (
+    RESET_NODE_STATE_KEY,
+    merge_node_states,
+)
 from app.core.langgraph.workflows.supervisor_simple.state import (
     SupervisorSimpleState,
     build_initial_state,
 )
+from app.services.workflow_service import WorkflowService
+
+
+def test_workflow_runtime_uses_local_agent_manifest():
+    crew = SimpleNamespace(
+        id="crew-1",
+        workflow_type="supervisor_simple",
+    )
+
+    local_agents = WorkflowService.local_agent_configs(crew)
+    workflow = WorkflowService.create_workflow(crew)
+
+    assert workflow is not None
+    assert len(local_agents) == 1
+    assert local_agents[0]["name"] == "official_supervisor"
+    assert local_agents[0]["system_prompt"]
+    assert local_agents[0]["model"]
+
+
+def test_missing_workflow_cannot_run():
+    crew = SimpleNamespace(
+        id="crew-1",
+        workflow_type="removed_workflow",
+    )
+
+    with pytest.raises(ValueError, match="references missing workflow"):
+        WorkflowService.create_workflow(crew)
 
 
 def test_delegated_agent_prompt_is_preserved_in_workflow_state():
@@ -26,7 +58,7 @@ def test_delegated_agent_prompt_is_preserved_in_workflow_state():
         agents=[
             {
                 "id": "supervisor-1",
-                "name": "supervisor",
+                "name": "official_supervisor",
                 "system_prompt": "You coordinate this crew.",
             },
             {
@@ -47,7 +79,7 @@ def test_delegated_agent_prompt_is_preserved_in_workflow_state():
     writer_state = state["agents"]["writer"]
 
     assert set(state["nodes"]) == {"supervisor"}
-    assert set(state["agents"]) == {"supervisor", "writer"}
+    assert set(state["agents"]) == {"official_supervisor", "writer"}
     assert supervisor_state["agent_id"] == "supervisor-1"
     assert supervisor_state["system_prompt"] == "You coordinate this crew."
     assert writer_state["agent_name"] == "Writer"
@@ -70,7 +102,7 @@ def test_official_supervisor_prompt_includes_worker_instructions():
         agents=[
             {
                 "id": "supervisor-1",
-                "name": "supervisor",
+                "name": "official_supervisor",
                 "system_prompt": "You coordinate this crew.",
             },
             {
@@ -112,7 +144,7 @@ def test_official_supervisor_prompt_includes_long_term_memories():
             **build_initial_state(crew_id="crew-1", agents=[
                 {
                     "id": "supervisor-1",
-                    "name": "supervisor",
+                    "name": "official_supervisor",
                     "system_prompt": "You coordinate this crew.",
                 }
             ])["nodes"]["supervisor"],
@@ -155,6 +187,83 @@ def test_checkpointed_supervisor_messages_survive_new_turn_input():
 
     assert merged["supervisor"]["messages"] == current["supervisor"]["messages"]
     assert merged["supervisor"]["user_input"] == "Continue the conversation"
+
+
+def test_new_turn_discards_checkpointed_business_outputs():
+    """A new turn must not expose stale downstream outputs to pipeline nodes."""
+
+    current = {
+        "scene_prompt_generator": {
+            "messages": [AIMessage(content="Earlier answer")],
+            "user_input": "Earlier request",
+            "scene_tags": ["indoors"],
+            "formatted_prompt": "stale prompt",
+        }
+    }
+    update = {
+        "scene_prompt_generator": {
+            RESET_NODE_STATE_KEY: True,
+            "messages": [],
+            "user_input": "Background is a street",
+            "status": "idle",
+        }
+    }
+
+    merged = merge_node_states(current, update)
+
+    assert merged["scene_prompt_generator"]["messages"] == current[
+        "scene_prompt_generator"
+    ]["messages"]
+    assert merged["scene_prompt_generator"]["user_input"] == (
+        "Background is a street"
+    )
+    assert "scene_tags" not in merged["scene_prompt_generator"]
+    assert "formatted_prompt" not in merged["scene_prompt_generator"]
+    assert RESET_NODE_STATE_KEY not in merged["scene_prompt_generator"]
+
+
+def test_pipeline_context_does_not_reuse_stale_downstream_output():
+    current = {
+        "requirement_analyzer": {
+            "requirements_json": {"scene": "room"},
+        },
+        "scene_prompt_generator": {
+            "scene_tags": ["indoors"],
+        },
+        "format_optimizer": {
+            "requirements_json": {"scene": "room"},
+            "formatted_prompt": "old result",
+        },
+    }
+    fresh = {
+        node_name: {
+            RESET_NODE_STATE_KEY: True,
+            "messages": [],
+            "user_input": "Background is a street",
+        }
+        for node_name in current
+    }
+    merged = merge_node_states(current, fresh)
+    merged = merge_node_states(
+        merged,
+        {
+            "requirement_analyzer": {
+                **merged["requirement_analyzer"],
+                "requirements_json": {"scene": "street"},
+            }
+        },
+    )
+
+    extension = create_pipeline_context_extension("scene_prompt_generator")
+    scene_state = extension.prepare_agent_state(
+        {
+            "nodes": merged,
+            "user_input": "Background is a street",
+        }
+    )
+
+    assert scene_state["requirements_json"] == {"scene": "street"}
+    assert "formatted_prompt" not in scene_state
 
 
 def test_short_term_memory_keeps_last_ten_turns():

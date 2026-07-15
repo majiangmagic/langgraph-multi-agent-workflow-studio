@@ -46,6 +46,8 @@ export type Crew = {
   description?: string;
   status: string;
   settings: Record<string, unknown>;
+  workflow_type: string;
+  workflow_missing: boolean;
   created_at: string;
   updated_at: string;
 };

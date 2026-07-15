@@ -120,7 +120,13 @@ function graphIntoDsl(data: DslData, nodes: Node<FlowNodeData>[], edges: Edge[])
   return { ...data, nodes: nodeMap, edges: [...graphEdges, ...originalEndEdges] };
 }
 
-export function DslDesigner({ onClose }: { onClose: () => void }) {
+export function DslDesigner({
+  onClose,
+  onGenerated,
+}: {
+  onClose: () => void;
+  onGenerated?: () => Promise<void>;
+}) {
   const [kind, setKind] = useState<DslKind>("workflow");
   const [items, setItems] = useState<DslSummary[]>([]);
   const [data, setData] = useState<DslData>(() => blankDsl("workflow"));
@@ -272,9 +278,12 @@ export function DslDesigner({ onClose }: { onClose: () => void }) {
     setBusy(true);
     try {
       const result = await api.generateDsl(kind, documentName, data);
-      setNotice(`已生成 ${result.generated_files.length} 个文件；重启服务后加载新代码`);
+      setNotice(result.restart_required
+        ? `已生成 ${result.generated_files.length} 个文件；重启服务后加载新代码`
+        : `已生成 ${result.generated_files.length} 个文件并加载到本地 registry`);
       setError("");
       await loadList(kind);
+      await onGenerated?.();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {

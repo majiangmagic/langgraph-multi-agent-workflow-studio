@@ -21,11 +21,10 @@ from app.core.langgraph.events import (
     reset_event_sink,
     set_event_sink,
 )
+from app.core.langgraph.workflows.registry import workflow_registry
 from app.services.conversation_service import ConversationService, ActivityLogService
-from app.services.crew_service import CrewService, AgentService
+from app.services.crew_service import CrewService
 from app.services.workflow_service import WorkflowService
-from app.core.langgraph.workflows.declarative import normalize_node_name
-from app.schemas.crew import CrewResponse, AgentResponse
 from app.schemas.conversation import (
     ConversationCreate, 
     ConversationResponse, 
@@ -43,21 +42,6 @@ from app.schemas.conversation import (
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 chat_router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
-
-
-def agent_to_workflow_config(agent) -> Dict[str, Any]:
-    """Convert a DB agent model into the workflow's simple agent config."""
-
-    return {
-        "id": str(agent.id),
-        "name": agent.name,
-        "description": agent.description,
-        "system_prompt": agent.system_prompt,
-        "model": agent.model,
-        "temperature": agent.temperature,
-        "is_supervisor": agent.is_supervisor,
-        "tools": [],
-    }
 
 
 def db_messages_to_langchain(messages) -> List[BaseMessage]:
@@ -179,22 +163,10 @@ async def build_workflow_for_conversation(
             detail=f"Crew with ID {conversation.crew_id} not found",
         )
 
-    agents = await AgentService.get_agents(db, crew_id=crew.id)
-    supervisor = next(
-        (agent for agent in agents if normalize_node_name(agent.name) == "supervisor"),
-        None,
-    ) or next((agent for agent in agents if agent.is_supervisor), None)
-    if not supervisor:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"No supervisor agent found for crew {crew.id}",
-        )
-
     try:
         history_messages = await get_short_term_history(db, conversation.id)
         workflow, initial_state = WorkflowService.create_workflow_run(
             crew=crew,
-            agents=[agent_to_workflow_config(agent) for agent in agents],
             conversation_id=str(conversation.id),
             user_id=conversation.user_id,
             user_input=user_message.content,
@@ -207,7 +179,14 @@ async def build_workflow_for_conversation(
             detail=str(exc),
         ) from exc
 
-    return workflow, initial_state, supervisor
+    workflow_type = WorkflowService.get_workflow_type(crew)
+    metadata = workflow_registry.get_metadata(workflow_type, fallback=False)
+    entrypoint = str(metadata.get("entrypoint") or "")
+    node_states = initial_state.get("nodes") or {}
+    runtime_agent = node_states.get(entrypoint) or next(
+        iter(node_states.values()), {}
+    )
+    return workflow, initial_state, runtime_agent
 
 
 async def run_chat_turn(
@@ -227,7 +206,7 @@ async def run_chat_turn(
         metadata={"workflow_inputs": workflow_inputs} if workflow_inputs else {},
     )
 
-    workflow, initial_state, supervisor = await build_workflow_for_conversation(
+    workflow, initial_state, runtime_agent = await build_workflow_for_conversation(
         db, conversation, user_message, workflow_inputs
     )
 
@@ -251,17 +230,19 @@ async def run_chat_turn(
         conversation_id=conversation.id,
         role=MessageRole.ASSISTANT,
         content=response_content,
-        agent_id=supervisor.id,
         parent_id=user_message.id,
         status=MessageStatus.COMPLETED,
-        metadata={"workflow_memory": workflow_memory} if workflow_memory else {},
+        metadata={
+            **({"workflow_memory": workflow_memory} if workflow_memory else {}),
+            "agent_name": runtime_agent.get("agent_name"),
+        },
     )
 
     await ActivityLogService.log_activity(
         db=db,
-        agent_id=supervisor.id,
+        agent_name=runtime_agent.get("agent_name"),
         activity_type=ActivityType.AGENT_MESSAGE,
-        description=f"Supervisor responded in conversation {conversation.id}",
+        description=f"Workflow responded in conversation {conversation.id}",
         conversation_id=conversation.id,
         message_id=assistant_message.id,
     )
@@ -507,17 +488,17 @@ async def add_message(
         conversation_id=conversation_id,
         role=message.role,
         content=message.content,
-        agent_id=message.agent_id,
         parent_id=message.parent_id,
         status=message.status,
         metadata=message.metadata,
     )
     
     # Log activity if it's an agent message
-    if message.role == MessageRole.AGENT and message.agent_id:
+    if message.role == MessageRole.AGENT:
+        agent_name = str(message.metadata.get("agent_name") or "local_agent")
         await ActivityLogService.log_activity(
             db=db,
-            agent_id=message.agent_id,
+            agent_name=agent_name,
             activity_type=ActivityType.AGENT_MESSAGE,
             description=f"Agent sent message in conversation {conversation_id}",
             conversation_id=conversation_id,
@@ -594,7 +575,7 @@ async def chat_stream(
         else {},
     )
 
-    workflow, initial_state, supervisor = await build_workflow_for_conversation(
+    workflow, initial_state, runtime_agent = await build_workflow_for_conversation(
         db, conversation, user_message, chat_request.workflow_inputs
     )
     
@@ -604,7 +585,6 @@ async def chat_stream(
         conversation_id=conversation_id,
         role=MessageRole.ASSISTANT,
         content="",
-        agent_id=supervisor.id,
         parent_id=user_message.id,
         status=MessageStatus.PROCESSING,
     )
@@ -673,7 +653,7 @@ async def chat_stream(
                 "id": message_id,
                 "object": "chat.completion.chunk",
                 "created": int(assistant_message.created_at.timestamp()),
-                "model": supervisor.model,
+                "model": runtime_agent.get("model") or "local-agent",
                 "choices": [
                     {
                         "delta": {"content": content_so_far},
@@ -689,7 +669,7 @@ async def chat_stream(
                 "id": message_id,
                 "object": "chat.completion.chunk",
                 "created": int(assistant_message.created_at.timestamp()),
-                "model": supervisor.model,
+                "model": runtime_agent.get("model") or "local-agent",
                 "choices": [
                     {
                         "delta": {},
@@ -712,7 +692,7 @@ async def chat_stream(
                 "id": message_id,
                 "object": "chat.completion.chunk",
                 "created": int(assistant_message.created_at.timestamp()),
-                "model": supervisor.model,
+                "model": runtime_agent.get("model") or "local-agent",
                 "choices": [
                     {
                         "delta": {"content": error_msg},
@@ -728,7 +708,7 @@ async def chat_stream(
                 "id": message_id,
                 "object": "chat.completion.chunk",
                 "created": int(assistant_message.created_at.timestamp()),
-                "model": supervisor.model,
+                "model": runtime_agent.get("model") or "local-agent",
                 "choices": [
                     {
                         "delta": {},
@@ -748,6 +728,7 @@ async def chat_stream(
             status=MessageStatus.COMPLETED,
             metadata={
                 "final_content": content_so_far,
+                "agent_name": runtime_agent.get("agent_name"),
                 **({"workflow_memory": workflow_memory} if workflow_memory else {}),
             }
         )
@@ -759,9 +740,9 @@ async def chat_stream(
         # Log the activity
         await ActivityLogService.log_activity(
             db=db,
-            agent_id=supervisor.id,
+            agent_name=runtime_agent.get("agent_name"),
             activity_type=ActivityType.AGENT_MESSAGE,
-            description=f"Supervisor responded in conversation {conversation_id} (streaming)",
+            description=f"Workflow responded in conversation {conversation_id} (streaming)",
             conversation_id=conversation_id,
             message_id=assistant_message.id,
         )

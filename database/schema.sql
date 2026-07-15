@@ -96,44 +96,11 @@ CREATE TABLE public.activity_logs (
     id uuid NOT NULL,
     activity_type public.activitytype NOT NULL,
     description text NOT NULL,
-    agent_id uuid NOT NULL,
+    agent_name character varying(255),
     conversation_id uuid,
     message_id uuid,
     details json NOT NULL,
     created_at timestamp without time zone NOT NULL
-);
-
-
---
--- Name: agent_tools; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.agent_tools (
-    agent_id uuid NOT NULL,
-    mcp_tool_id uuid NOT NULL,
-    settings json NOT NULL,
-    is_enabled boolean NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
-);
-
-
---
--- Name: agents; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.agents (
-    id uuid NOT NULL,
-    name character varying(255) NOT NULL,
-    description text,
-    system_prompt text NOT NULL,
-    model character varying(255) NOT NULL,
-    temperature double precision NOT NULL,
-    is_supervisor boolean NOT NULL,
-    settings json NOT NULL,
-    crew_id uuid NOT NULL,
-    created_at timestamp without time zone NOT NULL,
-    updated_at timestamp without time zone NOT NULL
 );
 
 
@@ -172,6 +139,7 @@ CREATE TABLE public.crews (
     name character varying(255) NOT NULL,
     description text,
     status public.crewstatus NOT NULL,
+    workflow_type character varying(255) DEFAULT 'supervisor_simple'::character varying NOT NULL,
     settings json NOT NULL,
     created_at timestamp without time zone NOT NULL,
     updated_at timestamp without time zone NOT NULL
@@ -217,7 +185,6 @@ CREATE TABLE public.messages (
     id uuid NOT NULL,
     role public.messagerole NOT NULL,
     content text NOT NULL,
-    agent_id uuid,
     status public.messagestatus NOT NULL,
     meta_data json NOT NULL,
     conversation_id uuid NOT NULL,
@@ -233,22 +200,6 @@ CREATE TABLE public.messages (
 
 ALTER TABLE ONLY public.activity_logs
     ADD CONSTRAINT activity_logs_pkey PRIMARY KEY (id);
-
-
---
--- Name: agent_tools agent_tools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.agent_tools
-    ADD CONSTRAINT agent_tools_pkey PRIMARY KEY (agent_id, mcp_tool_id);
-
-
---
--- Name: agents agents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.agents
-    ADD CONSTRAINT agents_pkey PRIMARY KEY (id);
 
 
 --
@@ -322,13 +273,6 @@ CREATE INDEX ix_public_activity_logs_created_at ON public.activity_logs USING bt
 
 
 --
--- Name: ix_public_agents_name; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX ix_public_agents_name ON public.agents USING btree (name);
-
-
---
 -- Name: ix_public_conversations_user_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -343,18 +287,17 @@ CREATE INDEX ix_public_crews_name ON public.crews USING btree (name);
 
 
 --
+-- Name: ix_public_crews_workflow_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_public_crews_workflow_type ON public.crews USING btree (workflow_type);
+
+
+--
 -- Name: ix_public_mcp_servers_name; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX ix_public_mcp_servers_name ON public.mcp_servers USING btree (name);
-
-
---
--- Name: activity_logs activity_logs_agent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.activity_logs
-    ADD CONSTRAINT activity_logs_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
 
 
 --
@@ -371,30 +314,6 @@ ALTER TABLE ONLY public.activity_logs
 
 ALTER TABLE ONLY public.activity_logs
     ADD CONSTRAINT activity_logs_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.messages(id) ON DELETE SET NULL;
-
-
---
--- Name: agent_tools agent_tools_agent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.agent_tools
-    ADD CONSTRAINT agent_tools_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE CASCADE;
-
-
---
--- Name: agent_tools agent_tools_mcp_tool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.agent_tools
-    ADD CONSTRAINT agent_tools_mcp_tool_id_fkey FOREIGN KEY (mcp_tool_id) REFERENCES public.mcp_tools(id) ON DELETE CASCADE;
-
-
---
--- Name: agents agents_crew_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.agents
-    ADD CONSTRAINT agents_crew_id_fkey FOREIGN KEY (crew_id) REFERENCES public.crews(id) ON DELETE CASCADE;
 
 
 --
@@ -430,14 +349,6 @@ ALTER TABLE ONLY public.mcp_tools
 
 
 --
--- Name: messages messages_agent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.messages
-    ADD CONSTRAINT messages_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE SET NULL;
-
-
---
 -- Name: messages messages_conversation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -458,4 +369,3 @@ ALTER TABLE ONLY public.messages
 --
 
 \unrestrict N6Qk2oWd6mEWfqjjC26o6mkps52iof4HV3EBxfAhpjd6uekAuwDUHXyfaTTMbVV
-

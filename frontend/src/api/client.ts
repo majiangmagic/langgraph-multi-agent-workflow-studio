@@ -33,7 +33,7 @@ export const api = {
     request<Crew>(`/api/crews/${crew.id}`, {
       method: "PUT",
       body: JSON.stringify({
-        settings: { ...crew.settings, workflow_type: workflowName },
+        workflow_type: workflowName,
       }),
     }),
   deleteCrew: (crewId: string) =>

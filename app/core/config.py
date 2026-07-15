@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Database settings
     database_url: PostgresDsn
     database_schema: str = "public"
+    activity_log_max_rows: int = 1000
     
     # AI API keys
     openrouter_api_key: str

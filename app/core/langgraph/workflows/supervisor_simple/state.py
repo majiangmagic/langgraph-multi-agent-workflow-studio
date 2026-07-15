@@ -14,7 +14,7 @@ SupervisorSimpleState = WorkflowState
 
 WORKFLOW_NAME = "supervisor_simple"
 NODE_AGENTS = {
-    "supervisor": "supervisor",
+    "supervisor": "official_supervisor",
 }
 
 

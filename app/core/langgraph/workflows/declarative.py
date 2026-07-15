@@ -5,6 +5,9 @@ from typing import Annotated, Any, Dict, List, Mapping, Optional, TypedDict
 from langchain_core.messages import BaseMessage
 
 
+RESET_NODE_STATE_KEY = "__reset_for_new_turn__"
+
+
 def normalize_node_name(name: str) -> str:
     """Normalize names used to bind workflow nodes to agent configs."""
 
@@ -18,15 +21,32 @@ def merge_node_states(
     """Merge node updates into checkpointed workflow state."""
 
     if not current:
-        return update or {}
+        return {
+            node_name: {
+                key: value
+                for key, value in node_state.items()
+                if key != RESET_NODE_STATE_KEY
+            }
+            for node_name, node_state in (update or {}).items()
+        }
     if not update:
         return current
 
     merged = {**current}
     for node_name, node_update in update.items():
         node_current = current.get(node_name, {})
-        node_merged = {**node_current, **node_update}
-        if node_update.get("messages") == [] and node_current.get("messages"):
+        reset_for_new_turn = bool(node_update.get(RESET_NODE_STATE_KEY))
+        clean_update = {
+            key: value
+            for key, value in node_update.items()
+            if key != RESET_NODE_STATE_KEY
+        }
+        node_merged = (
+            clean_update
+            if reset_for_new_turn
+            else {**node_current, **clean_update}
+        )
+        if clean_update.get("messages") == [] and node_current.get("messages"):
             node_merged["messages"] = node_current["messages"]
         merged[node_name] = node_merged
     return merged
@@ -55,6 +75,7 @@ def build_agent_runtime_state(
 
     agent_key = agent_config.get("id") or node_name
     return {
+        RESET_NODE_STATE_KEY: True,
         "agent_id": str(agent_key),
         "agent_name": agent_config.get("name", node_name),
         "description": agent_config.get("description"),

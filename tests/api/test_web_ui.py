@@ -3,11 +3,9 @@
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 import pytest
-from sqlalchemy import select
 
-from app.db.base import get_db
+from app.db.base import Base, get_db
 from app.main import app
-from app.models.crew import Agent
 
 
 client = TestClient(app)
@@ -63,6 +61,12 @@ def test_workflow_options_endpoint_lists_registered_workflows():
     assert controls["target_model"]["default"] == "nai_v4"
 
 
+def test_database_agent_api_and_tables_are_removed():
+    assert client.get("/api/agents/").status_code == 404
+    assert "agents" not in Base.metadata.tables
+    assert "agent_tools" not in Base.metadata.tables
+
+
 @pytest.mark.asyncio
 async def test_create_sample_crew_for_prompt_workflow(db_session):
     async def override_get_db():
@@ -80,27 +84,50 @@ async def test_create_sample_crew_for_prompt_workflow(db_session):
             second_response = await client.post(
                 "/api/workflows/prompt_generation_workflow/sample-crew"
             )
+            detail_response = await client.get(
+                f"/api/crews/{response.json()['id']}"
+            )
 
         assert response.status_code == 200
         assert second_response.status_code == 200
+        assert detail_response.status_code == 200
+        assert detail_response.json()["mcp_servers"] == []
         crew = response.json()
         second_crew = second_response.json()
-        assert crew["settings"]["workflow_type"] == "prompt_generation_workflow"
+        assert crew["workflow_type"] == "prompt_generation_workflow"
+        assert crew["settings"] == {}
+        assert crew["workflow_missing"] is False
         assert crew["name"] == "prompt_generation_workflow demo 1"
         assert second_crew["name"] == "prompt_generation_workflow demo 2"
 
-        agents = (await db_session.execute(select(Agent))).scalars().all()
-        names = {agent.name for agent in agents}
-        assert names == {
-            "official_supervisor",
-            "natural_language_editor",
-            "prompt_requirement_analyzer",
-            "character_prompt_generator",
-            "scene_prompt_generator",
-            "additional_prompt_generator",
-            "prompt_aggregator",
-            "prompt_format_optimizer",
-        }
-        assert len(agents) == 16
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_crew_with_missing_workflow_remains_visible(db_session):
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            created = await client.post(
+                "/api/crews/",
+                json={
+                    "name": "Missing workflow crew",
+                    "workflow_type": "removed_workflow",
+                },
+            )
+            crews = await client.get("/api/crews/")
+
+        assert created.status_code == 201
+        assert created.json()["workflow_type"] == "removed_workflow"
+        assert created.json()["workflow_missing"] is True
+        listed = next(item for item in crews.json() if item["id"] == created.json()["id"])
+        assert listed["workflow_missing"] is True
     finally:
         app.dependency_overrides.pop(get_db, None)

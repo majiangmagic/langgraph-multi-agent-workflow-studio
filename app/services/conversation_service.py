@@ -4,12 +4,12 @@ Service for managing conversations and messages
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation, Message, MessageRole, MessageStatus
-from app.models.crew import Crew, Agent
 from app.models.activity_log import ActivityLog, ActivityType
+from app.core.config import settings
 
 
 class ConversationService:
@@ -154,7 +154,6 @@ class ConversationService:
         conversation_id: uuid.UUID,
         role: MessageRole,
         content: str,
-        agent_id: uuid.UUID = None,
         parent_id: uuid.UUID = None,
         status: MessageStatus = MessageStatus.COMPLETED,
         metadata: Dict[str, Any] = None
@@ -169,7 +168,6 @@ class ConversationService:
             conversation_id=conversation_id,
             role=role,
             content=content,
-            agent_id=agent_id,
             parent_id=parent_id,
             status=status,
             meta_data=metadata or {}
@@ -242,16 +240,16 @@ class ActivityLogService:
     @staticmethod
     async def log_activity(
         db: AsyncSession,
-        agent_id: uuid.UUID,
         activity_type: ActivityType,
         description: str,
+        agent_name: str = None,
         conversation_id: uuid.UUID = None,
         message_id: uuid.UUID = None,
         details: Dict[str, Any] = None
     ) -> ActivityLog:
         """Create a new activity log entry"""
         log = ActivityLog(
-            agent_id=agent_id,
+            agent_name=agent_name,
             activity_type=activity_type,
             description=description,
             conversation_id=conversation_id,
@@ -261,12 +259,36 @@ class ActivityLogService:
         
         db.add(log)
         await db.flush()
+        await ActivityLogService.prune_activity_logs(db)
         return log
+
+    @staticmethod
+    async def prune_activity_logs(
+        db: AsyncSession,
+        max_rows: int = None,
+    ) -> int:
+        """Keep only the newest configured number of activity log rows."""
+
+        limit = settings.activity_log_max_rows if max_rows is None else max_rows
+        if limit < 1:
+            raise ValueError("activity_log_max_rows must be at least 1")
+
+        stale_ids = (
+            select(ActivityLog.id)
+            .order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc())
+            .offset(limit)
+        )
+        result = await db.execute(
+            delete(ActivityLog)
+            .where(ActivityLog.id.in_(stale_ids))
+            .execution_options(synchronize_session=False)
+        )
+        return max(result.rowcount or 0, 0)
     
     @staticmethod
     async def get_activity_logs(
         db: AsyncSession,
-        agent_id: uuid.UUID = None,
+        agent_name: str = None,
         conversation_id: uuid.UUID = None,
         activity_type: ActivityType = None,
         start_time: datetime = None,
@@ -278,8 +300,8 @@ class ActivityLogService:
         query = select(ActivityLog)
         
         # Apply filters
-        if agent_id:
-            query = query.where(ActivityLog.agent_id == agent_id)
+        if agent_name:
+            query = query.where(ActivityLog.agent_name == agent_name)
         if conversation_id:
             query = query.where(ActivityLog.conversation_id == conversation_id)
         if activity_type:

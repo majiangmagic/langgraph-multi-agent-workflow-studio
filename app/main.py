@@ -15,9 +15,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.db.base import async_session_factory
 from app.api.routes import conversation, crew, dsl, workflow
 from app.core.langgraph.checkpoint import close_checkpointer, init_checkpointer
 from app.core.langgraph.store import close_store, init_store
+from app.services.conversation_service import ActivityLogService
 
 WEB_DIR = Path(__file__).resolve().parent / "web" / "dist"
 
@@ -68,7 +70,8 @@ async def web_app():
 @app.on_event("startup")
 async def startup_event():
     """Run tasks on application startup"""
-    # Initialize database connections, caches, etc.
+    async with async_session_factory.begin() as db:
+        await ActivityLogService.prune_activity_logs(db)
     await init_checkpointer()
     await init_store()
 

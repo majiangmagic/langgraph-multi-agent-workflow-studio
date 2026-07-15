@@ -90,11 +90,6 @@ class Message(Base):
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     
-    # For agent-specific messages
-    agent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"), nullable=True
-    )
-    
     # Message status for tracking processing
     status: Mapped[MessageStatus] = mapped_column(
         Enum(MessageStatus), default=MessageStatus.COMPLETED, nullable=False
@@ -128,4 +123,3 @@ class Message(Base):
     parent: Mapped[Optional["Message"]] = relationship(
         "Message", remote_side=[id], backref="replies"
     )
-    agent = relationship("Agent", backref="messages")

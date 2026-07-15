@@ -3,7 +3,7 @@ Pydantic schemas for conversations and messages
 """
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -28,7 +28,6 @@ class MessageBase(BaseModel):
     """Base schema for message data"""
     role: MessageRole
     content: str
-    agent_id: Optional[UUID] = None
     parent_id: Optional[UUID] = None
     status: MessageStatus = MessageStatus.COMPLETED
     metadata: Dict[str, Any] = Field(

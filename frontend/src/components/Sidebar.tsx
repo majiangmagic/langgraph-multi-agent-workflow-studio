@@ -59,6 +59,7 @@ export function Sidebar(props: Props) {
         <label>
           <span>工作流</span>
           <select onChange={(event) => props.onWorkflowChange(event.target.value)} value={props.workflowName}>
+            {!props.workflowName && props.crewId && <option value="">当前 Crew 的工作流缺失，请选择替代项</option>}
             {props.workflows.map((workflow) => (
               <option key={workflow.name} value={workflow.name}>{workflow.ui.title ?? workflow.name}</option>
             ))}
@@ -68,9 +69,16 @@ export function Sidebar(props: Props) {
           <span>Crew</span>
           <select onChange={(event) => props.onCrewChange(event.target.value)} value={props.crewId}>
             {!props.crews.length && <option value="">暂无 Crew</option>}
-            {props.crews.map((crew) => <option key={crew.id} value={crew.id}>{crew.name}</option>)}
+            {props.crews.map((crew) => (
+              <option key={crew.id} value={crew.id}>
+                {crew.name}{crew.workflow_missing ? `（缺失：${crew.workflow_type}）` : ""}
+              </option>
+            ))}
           </select>
         </label>
+        {props.crews.find((crew) => crew.id === props.crewId)?.workflow_missing && (
+          <div className="workflow-missing-notice">本地未注册该 Crew 引用的工作流，选择一个可用工作流后才能运行。</div>
+        )}
         <div className="crew-actions">
           <button className="create-crew-button" disabled={!props.workflowName || props.busy} onClick={props.onCreateCrew} type="button">
             <Sparkles size={15} />创建示例 Crew

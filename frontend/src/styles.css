@@ -75,6 +75,7 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
   box-shadow: 0 0 0 3px rgba(101, 199, 148, .12);
 }
 .crew-actions { display: grid; grid-template-columns: minmax(0, 1fr) 37px; gap: 7px; }
+.workflow-missing-notice { border-left: 2px solid #e1a94c; color: #e2c584; padding: 3px 0 3px 8px; font-size: 10px; line-height: 1.5; }
 .create-crew-button, .send-button {
   display: inline-flex;
   height: 37px;

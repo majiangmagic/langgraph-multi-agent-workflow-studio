@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any, Literal
 
@@ -103,8 +105,24 @@ def generated_paths(kind: DslKind, data: dict[str, Any]) -> list[str]:
 def generate_dsl(kind: DslKind, data: dict[str, Any]) -> dict[str, Any]:
     validation = validate_dsl(kind, data)
     paths = generated_paths(kind, data)
+    parsed = parse_agent_dsl(data) if kind == "agent" else parse_workflow_dsl(data)
     if kind == "agent":
-        write_agent(parse_agent_dsl(data))
+        write_agent(parsed)
     else:
-        write_workflow(parse_workflow_dsl(data))
-    return {**validation, "generated_files": paths, "restart_required": True}
+        write_workflow(parsed)
+
+    importlib.invalidate_caches()
+    if kind == "agent":
+        base = "app.agents." + ".".join(parsed.package_segments)
+        module_names = [f"{base}.{name}" for name in ("state", "nodes", "spec", "graph")]
+    else:
+        base = f"app.core.langgraph.workflows.{parsed.name}"
+        module_names = [f"{base}.state", f"{base}.graph"]
+
+    for module_name in module_names:
+        if module_name in sys.modules:
+            importlib.reload(sys.modules[module_name])
+        else:
+            importlib.import_module(module_name)
+
+    return {**validation, "generated_files": paths, "restart_required": False}

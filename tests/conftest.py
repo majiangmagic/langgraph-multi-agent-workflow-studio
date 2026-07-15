@@ -21,7 +21,7 @@ os.environ["DATABASE_SCHEMA"] = os.getenv("DATABASE_SCHEMA", "")
 from app.db.base import Base, get_db
 from app.main import app
 from app.core.config import settings
-from app.models.crew import Crew, Agent, MCPServer, MCPTool
+from app.models.crew import Crew, MCPServer, MCPTool
 from app.models.conversation import Conversation, Message, MessageRole, MessageStatus
 
 
@@ -163,24 +163,6 @@ async def test_mcp_tool(db_session, test_mcp_server) -> MCPTool:
 
 
 @pytest_asyncio.fixture
-async def test_agent(db_session, test_crew) -> Agent:
-    """Create a test agent in the database"""
-    agent = Agent(
-        crew_id=test_crew.id,
-        name="Test Agent",
-        description="An agent for testing",
-        system_prompt="You are a test agent",
-        model="test-model",
-        is_supervisor=True,
-        settings={"test": True},
-    )
-    db_session.add(agent)
-    await db_session.commit()
-    await db_session.refresh(agent)
-    return agent
-
-
-@pytest_asyncio.fixture
 async def test_conversation(db_session, test_crew) -> Conversation:
     """Create a test conversation in the database"""
     conversation = Conversation(
@@ -196,15 +178,14 @@ async def test_conversation(db_session, test_crew) -> Conversation:
 
 
 @pytest_asyncio.fixture
-async def test_message(db_session, test_conversation, test_agent) -> Message:
+async def test_message(db_session, test_conversation) -> Message:
     """Create a test message in the database"""
     message = Message(
         conversation_id=test_conversation.id,
         role=MessageRole.AGENT,
         content="This is a test message",
-        agent_id=test_agent.id,
         status=MessageStatus.COMPLETED,
-        meta_data={"test": True},
+        meta_data={"test": True, "agent_name": "test_agent"},
     )
     db_session.add(message)
     await db_session.commit()

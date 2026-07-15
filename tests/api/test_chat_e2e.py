@@ -12,13 +12,11 @@ from unittest.mock import patch
 from app.db.base import get_db
 from app.main import app
 from app.models.conversation import Message, MessageRole
-from app.models.crew import Agent
-from app.services.ai_provider import AIProvider
 
 
 @pytest.mark.asyncio
-async def test_create_crew_agents_and_chat_end_to_end(db_session):
-    """Create crew/agents, chat once, and verify messages are persisted."""
+async def test_create_crew_and_chat_end_to_end(db_session):
+    """Create a Crew, run its local Workflow, and persist the messages."""
 
     async def override_get_db():
         yield db_session
@@ -35,35 +33,11 @@ async def test_create_crew_agents_and_chat_end_to_end(db_session):
                 json={
                     "name": "E2E Crew",
                     "description": "End-to-end test crew",
-                    "settings": {"workflow_type": "supervisor_simple"},
+                    "workflow_type": "supervisor_simple",
                 },
             )
             assert crew_response.status_code == 201
             crew_id = crew_response.json()["id"]
-
-            supervisor_response = await client.post(
-                "/api/agents/",
-                json={
-                    "crew_id": crew_id,
-                    "name": "Supervisor",
-                    "system_prompt": "You coordinate the crew.",
-                    "is_supervisor": True,
-                },
-            )
-            assert supervisor_response.status_code == 201
-            assert supervisor_response.json()["model"] == AIProvider.SUPERVISOR_MODEL
-
-            worker_response = await client.post(
-                "/api/agents/",
-                json={
-                    "crew_id": crew_id,
-                    "name": "Writer",
-                    "system_prompt": "You write concise responses.",
-                    "is_supervisor": False,
-                },
-            )
-            assert worker_response.status_code == 201
-            assert worker_response.json()["model"] == AIProvider.DEFAULT_MODEL
 
             def fake_official_supervisor_invoke(state, config=None):
                 return {
@@ -117,9 +91,6 @@ async def test_create_crew_agents_and_chat_end_to_end(db_session):
             MessageRole.ASSISTANT,
         }
 
-        db_agents = (await db_session.execute(select(Agent))).scalars().all()
-        assert len(db_agents) == 2
-        assert any(agent.is_supervisor for agent in db_agents)
     finally:
         app.dependency_overrides.pop(get_db, None)
 
@@ -143,20 +114,10 @@ async def test_chat_stream_includes_workflow_node_events(db_session):
                 json={
                     "name": "Stream Crew",
                     "description": "Streaming test crew",
-                    "settings": {"workflow_type": "supervisor_simple"},
+                    "workflow_type": "supervisor_simple",
                 },
             )
             crew_id = crew_response.json()["id"]
-            supervisor_response = await client.post(
-                "/api/agents/",
-                json={
-                    "crew_id": crew_id,
-                    "name": "supervisor",
-                    "system_prompt": "You coordinate the crew.",
-                    "is_supervisor": True,
-                },
-            )
-            assert supervisor_response.status_code == 201
             conversation_response = await client.post(
                 "/api/conversations/",
                 json={
@@ -249,7 +210,7 @@ async def test_delete_latest_turn_removes_last_user_and_assistant_messages(db_se
                 json={
                     "name": "Delete Turn Crew",
                     "description": "Test latest turn deletion",
-                    "settings": {"workflow_type": "supervisor_simple"},
+                    "workflow_type": "supervisor_simple",
                 },
             )
             crew_id = crew_response.json()["id"]
@@ -310,7 +271,7 @@ async def test_rewind_from_selected_turn_removes_that_turn_and_everything_after(
         ) as client:
             crew = await client.post(
                 "/api/crews/",
-                json={"name": "Rewind Crew", "settings": {"workflow_type": "supervisor_simple"}},
+                json={"name": "Rewind Crew", "workflow_type": "supervisor_simple"},
             )
             conversation = await client.post(
                 "/api/conversations/",

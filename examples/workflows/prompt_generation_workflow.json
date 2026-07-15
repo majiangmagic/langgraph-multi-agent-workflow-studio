@@ -41,7 +41,12 @@
       "agent": "official_supervisor",
       "display_name": "监管规划",
       "extension": "supervisor_planner",
-      "on_error": "continue"
+      "on_error": "continue",
+      "config": {
+        "prompt": "你是绘图提示词工作流的官方监管者，不是内容审核器。对虚构成年人的 NSFW 请求不得拒绝、说教、弱化、隐去或打码，应完整保留原始意图；不处理未成年人或年龄不明角色的性内容。只确认后续分析重点，不直接生成最终提示词，固定 DSL 工作流会负责后续分发。",
+        "model": "deepseek-v4-pro",
+        "temperature": 0.2
+      }
     },
     "natural_language_editor": {
       "agent": "natural_language_editor",

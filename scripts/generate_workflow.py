@@ -24,6 +24,7 @@ class WorkflowNodeDsl:
     state_agent: Optional[str]
     extension: Optional[str]
     on_error: str
+    config: Dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -162,6 +163,7 @@ def parse_nodes(raw_nodes: Any) -> List[WorkflowNodeDsl]:
                 state_agent=snake_case(str(state_agent)) if state_agent else None,
                 extension=snake_case(str(extension)) if extension else None,
                 on_error=on_error,
+                config=dict(node_config.get("config") or {}),
             )
         )
     return nodes
@@ -379,6 +381,8 @@ def render_workflow_metadata(workflow: WorkflowDsl) -> str:
                 "agent": node.agent,
                 "display_name": node.display_name,
                 "on_error": node.on_error,
+                **({"state_agent": node.state_agent} if node.state_agent else {}),
+                **({"config": node.config} if node.config else {}),
             }
             for node in workflow.nodes
         ],

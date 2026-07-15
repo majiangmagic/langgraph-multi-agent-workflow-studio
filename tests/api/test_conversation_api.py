@@ -18,7 +18,6 @@ client = TestClient(app)
 mock_conversation_id = uuid.uuid4()
 mock_crew_id = uuid.uuid4()
 mock_user_id = "test-user-123"
-mock_agent_id = uuid.uuid4()
 
 
 @pytest.fixture
@@ -26,7 +25,6 @@ def mock_services():
     """Fixture to set up mocks for services used in the API endpoints"""
     with patch("app.api.routes.conversation.ConversationService") as mock_conversation_service, \
          patch("app.api.routes.conversation.CrewService") as mock_crew_service, \
-         patch("app.api.routes.conversation.AgentService") as mock_agent_service, \
          patch("app.api.routes.conversation.ActivityLogService") as mock_activity_log_service, \
          patch("app.api.routes.conversation.WorkflowService") as mock_workflow_service:
 
@@ -59,37 +57,34 @@ def mock_services():
         # Use AsyncMock for async methods
         mock_crew_service.get_crew = AsyncMock(return_value=mock_crew)
 
-        # Setup mock agent service
-        mock_agent = MagicMock()
-        mock_agent.id = mock_agent_id
-        mock_agent.name = "Supervisor"
-        mock_agent.description = "Supervisor agent"
-        mock_agent.is_supervisor = True
-        mock_agent.model = "openai/gpt-4-turbo"
-        mock_agent.system_prompt = "You are a supervisor."
-        mock_agent.temperature = 0.2
-        # Use AsyncMock for async methods
-        mock_agent_service.get_agents = AsyncMock(return_value=[mock_agent])
-
         mock_workflow = MagicMock()
         mock_workflow.ainvoke = AsyncMock(
             return_value={
-                "supervisor": {
-                    "messages": [AIMessage(content="Test workflow response")]
+                "nodes": {
+                    "supervisor": {
+                        "messages": [AIMessage(content="Test workflow response")]
+                    }
                 }
             }
         )
         mock_initial_state = {
-            "supervisor": {
-                "messages": [],
-                "user_input": None,
-                "plan": None,
-                "action": None,
-                "agents": {},
+            "nodes": {
+                "supervisor": {
+                    "agent_id": "local:official_supervisor:supervisor",
+                    "agent_name": "official_supervisor",
+                    "model": "test-model",
+                    "messages": [],
+                    "user_input": None,
+                    "plan": None,
+                    "action": None,
+                    "agents": {},
+                }
             },
+            "agents": {},
             "crew_id": str(mock_crew_id),
             "conversation_id": "",
         }
+        mock_workflow_service.get_workflow_type.return_value = "supervisor_simple"
         mock_workflow_service.create_workflow_run.return_value = (
             mock_workflow,
             mock_initial_state,
@@ -101,7 +96,6 @@ def mock_services():
         yield {
             "conversation_service": mock_conversation_service,
             "crew_service": mock_crew_service,
-            "agent_service": mock_agent_service,
             "activity_log_service": mock_activity_log_service,
             "workflow_service": mock_workflow_service,
             "workflow": mock_workflow,
@@ -176,6 +170,7 @@ async def test_chat_endpoint_seeds_workflow_with_recent_history(mock_services):
 
     assert response.status_code == 200
     kwargs = mock_services["workflow_service"].create_workflow_run.call_args.kwargs
+    assert "agents" not in kwargs
     assert [type(message) for message in kwargs["messages"]] == [
         HumanMessage,
         AIMessage,

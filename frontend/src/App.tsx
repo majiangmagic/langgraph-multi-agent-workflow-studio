@@ -93,7 +93,7 @@ export default function App() {
         setWorkflows(workflowData);
         setCrews(crewData);
         const firstCrew = crewData[0];
-        const crewWorkflow = String(firstCrew?.settings.workflow_type || "");
+        const crewWorkflow = firstCrew?.workflow_type || "";
         const defaultWorkflow = workflowData.find((item) => item.name === crewWorkflow)
           ?? workflowData.find((item) => item.is_default)
           ?? workflowData[0];
@@ -124,6 +124,12 @@ export default function App() {
     }
   }, [crewId, reportError, userId]);
 
+  const reloadDefinitions = useCallback(async () => {
+    const [workflowData, crewData] = await Promise.all([api.workflows(), api.crews()]);
+    setWorkflows(workflowData);
+    setCrews(crewData);
+  }, []);
+
   useEffect(() => {
     void loadConversations();
   }, [loadConversations]);
@@ -138,10 +144,25 @@ export default function App() {
 
   function changeCrew(value: string) {
     const crew = crews.find((item) => item.id === value);
-    const crewWorkflow = String(crew?.settings.workflow_type || "");
+    const crewWorkflow = crew?.workflow_type || "";
     setCrewId(value);
     if (workflows.some((workflow) => workflow.name === crewWorkflow)) {
       setWorkflowName(crewWorkflow);
+    } else {
+      setWorkflowName("");
+    }
+    resetConversation();
+  }
+
+  async function changeWorkflow(value: string) {
+    setWorkflowName(value);
+    if (selectedCrew && selectedCrew.workflow_type !== value) {
+      try {
+        const updated = await api.updateCrewWorkflow(selectedCrew, value);
+        setCrews((current) => current.map((crew) => crew.id === updated.id ? updated : crew));
+      } catch (reason) {
+        reportError(reason);
+      }
     }
     resetConversation();
   }
@@ -185,7 +206,7 @@ export default function App() {
     if (!selectedCrew) return;
     setConfirmation({
       title: "删除 Crew",
-      description: `Crew“${selectedCrew.name}”及其 Agent 配置将被永久删除。`,
+        description: `Crew“${selectedCrew.name}”及其全部会话将被永久删除。`,
       action: async () => {
         await api.deleteCrew(selectedCrew.id);
         const crewData = await api.crews();
@@ -263,7 +284,7 @@ export default function App() {
     try {
       if (!targetConversationId) {
         let crew = selectedCrew;
-        if (crew.settings.workflow_type !== selectedWorkflow.name) {
+        if (crew.workflow_type !== selectedWorkflow.name) {
           crew = await api.updateCrewWorkflow(crew, selectedWorkflow.name);
           setCrews((current) => current.map((item) => item.id === crew.id ? crew : item));
         }
@@ -301,7 +322,9 @@ export default function App() {
     }
   }
 
-  if (view === "designer") return <DslDesigner onClose={() => setView("runtime")} />;
+  if (view === "designer") {
+    return <DslDesigner onClose={() => setView("runtime")} onGenerated={reloadDefinitions} />;
+  }
 
   return (
     <main className="app-shell">
@@ -321,7 +344,7 @@ export default function App() {
           onOpenConversation={(id) => void openConversation(id)}
           onRefresh={() => void loadConversations()}
           onUserIdChange={(value) => { setUserId(value); localStorage.setItem("workflow-user-id", value); resetConversation(); }}
-          onWorkflowChange={(value) => { setWorkflowName(value); resetConversation(); }}
+          onWorkflowChange={(value) => void changeWorkflow(value)}
           userId={userId}
           workflowName={workflowName}
           workflows={workflows}
