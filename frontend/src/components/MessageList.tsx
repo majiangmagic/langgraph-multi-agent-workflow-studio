@@ -1,4 +1,4 @@
-import { Bot, History, UserRound } from "lucide-react";
+import { Bot, History, Trash2, UserRound } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { Message } from "../types";
 import { PromptResult } from "./PromptResult";
@@ -7,12 +7,15 @@ export function MessageList({
   messages,
   pending,
   onRewind,
+  onDeleteLatestTurn,
 }: {
   messages: Message[];
   pending: boolean;
   onRewind?: (message: Message) => void;
+  onDeleteLatestTurn?: () => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const latestUserMessageId = [...messages].reverse().find((message) => message.role === "user")?.id;
   useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, pending]);
 
   if (!messages.length && !pending) {
@@ -36,15 +39,22 @@ export function MessageList({
             <div className="message-author">
               {user ? <UserRound size={15} /> : <Bot size={15} />}
               <span>{user ? "你" : "工作流结果"}</span>
-              {user && onRewind && !message.id.startsWith("local-") && (
-                <button className="rewind-button" onClick={() => onRewind(message)} title="从这一轮开始回溯" type="button">
-                  <History size={13} />回溯
-                </button>
-              )}
             </div>
             <div className="message-surface">
               {user ? <div className="message-text">{message.content}</div> : <PromptResult content={message.content} />}
             </div>
+            {user && onRewind && !message.id.startsWith("local-") && (
+              <div className="message-actions" aria-label="消息操作">
+                <button onClick={() => onRewind(message)} title="回溯到这里并重新编辑" type="button">
+                  <History size={14} /><span>回溯</span>
+                </button>
+                {message.id === latestUserMessageId && onDeleteLatestTurn && (
+                  <button className="danger" onClick={onDeleteLatestTurn} title="删除这一轮" type="button">
+                    <Trash2 size={14} /><span>删除本轮</span>
+                  </button>
+                )}
+              </div>
+            )}
           </article>
         );
       })}

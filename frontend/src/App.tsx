@@ -4,7 +4,6 @@ import {
   Send,
   Square,
   Trash2,
-  Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "./api/client";
@@ -348,7 +347,6 @@ export default function App() {
             />
             <div className="turn-actions">
               <button className="icon-button light" onClick={() => setView("designer")} title="打开 DSL 设计器" type="button"><Code2 size={16} /></button>
-              <button className="secondary-button" disabled={!conversationId || busy} onClick={confirmDeleteLatestTurn} type="button"><Undo2 size={15} />删除最后一轮</button>
               <button className="icon-button light danger" disabled={!conversationId || busy} onClick={() => conversationId && confirmDeleteConversation(conversationId)} title="删除当前会话" type="button"><Trash2 size={16} /></button>
             </div>
           </div>
@@ -356,7 +354,12 @@ export default function App() {
 
         {error && <div className="error-banner"><span>{error}</span><button onClick={() => setError("")} type="button">关闭</button></div>}
         <Pipeline onClear={stream.clear} statuses={stream.nodeStatuses} workflow={selectedWorkflow} />
-        <MessageList messages={messages} onRewind={confirmRewind} pending={stream.running} />
+        <MessageList
+          messages={messages}
+          onDeleteLatestTurn={confirmDeleteLatestTurn}
+          onRewind={confirmRewind}
+          pending={stream.running}
+        />
 
         <form className="composer" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
           <textarea

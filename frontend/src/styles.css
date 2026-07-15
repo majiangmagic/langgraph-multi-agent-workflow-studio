@@ -199,8 +199,13 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
 .message.assistant { width: min(920px, 92%); margin-right: auto; }
 .message-author { display: flex; align-items: center; gap: 5px; color: #74817b; font-size: 10px; font-weight: 760; }
 .message.user .message-author { justify-content: flex-end; }
-.rewind-button { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: #3b8865; padding: 2px 4px; font-size: 9px; opacity: 0; transition: opacity .15s; }
-.message:hover .rewind-button, .rewind-button:focus-visible { opacity: 1; }
+.message { position: relative; }
+.message-actions { position: absolute; z-index: 3; top: 18px; right: 8px; display: flex; gap: 3px; visibility: hidden; border: 1px solid #cfd8d4; border-radius: 6px; background: rgba(255, 255, 255, .97); padding: 3px; opacity: 0; box-shadow: 0 4px 14px rgba(20, 36, 29, .12); transform: translateY(-4px); transition: opacity .15s, transform .15s, visibility .15s; }
+.message:hover .message-actions, .message:focus-within .message-actions { visibility: visible; opacity: 1; transform: translateY(0); }
+.message-actions button { display: inline-flex; height: 28px; align-items: center; gap: 4px; border: 0; border-radius: 4px; background: transparent; color: #347c5c; padding: 0 7px; font-size: 9px; }
+.message-actions button:hover { background: #edf7f2; color: #176b49; }
+.message-actions button.danger { color: #a24f47; }
+.message-actions button.danger:hover { background: #fff0ee; color: #8e3e37; }
 .message-surface { overflow: hidden; border: 1px solid #d8dfdc; border-radius: 7px; background: #fff; }
 .message.user .message-surface { border-color: #b8d9c9; background: #eaf7f0; }
 .message-text { padding: 12px 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.65; }
@@ -294,7 +299,7 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
   .dsl-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .designer-actions { width: 100%; flex-wrap: wrap; }
   .designer-actions button { flex: 1; }
-  .rewind-button { opacity: 1; }
+  .message-actions { position: static; visibility: visible; justify-self: end; margin-top: -3px; opacity: 1; box-shadow: none; transform: none; }
 }
 
 @media (max-width: 1180px) {
