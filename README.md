@@ -343,7 +343,7 @@ copy .env.example .env
 常用配置：
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/multiagent_db"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sesame_agent_workflow_kit"
 DATABASE_SCHEMA="public"
 OPENROUTER_API_KEY="..."
 JWT_SECRET_KEY="change-me"
