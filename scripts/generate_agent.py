@@ -372,7 +372,8 @@ def {node.handler}(
 ) -> Dict[str, Any]:
     """TODO: 在这里填写节点 "{node.name}" 的业务逻辑。"""
 
-    # prompt/model/temperature 来自数据库里的 agent 配置，经 workflow state 注入。
+    # prompt/model/temperature 来自本地 Agent manifest 和 Workflow 节点配置，
+    # 由运行时经 Workflow state 注入。
     # 这里可以读取 state["system_prompt"], state["model"], state["temperature"]。
     return {{}}
 # </agent-node>'''
