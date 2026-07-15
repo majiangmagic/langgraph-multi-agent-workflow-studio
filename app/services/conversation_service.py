@@ -116,7 +116,31 @@ class ConversationService:
         if latest_user_index is None:
             return 0
 
-        messages_to_delete = messages[latest_user_index:]
+        return await ConversationService.delete_from_message(
+            db, conversation_id, messages[latest_user_index].id
+        )
+
+    @staticmethod
+    async def delete_from_message(
+        db: AsyncSession,
+        conversation_id: uuid.UUID,
+        message_id: uuid.UUID,
+    ) -> int:
+        """Delete one user turn and every message that follows it."""
+
+        conversation = await ConversationService.get_conversation(db, conversation_id)
+        if not conversation:
+            return -1
+
+        messages = await ConversationService.get_messages(db, conversation_id)
+        target_index = next(
+            (index for index, message in enumerate(messages) if message.id == message_id),
+            None,
+        )
+        if target_index is None or messages[target_index].role != MessageRole.USER:
+            return 0
+
+        messages_to_delete = messages[target_index:]
         for message in reversed(messages_to_delete):
             await db.delete(message)
 

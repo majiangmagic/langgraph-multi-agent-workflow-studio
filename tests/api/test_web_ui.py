@@ -17,13 +17,18 @@ def test_web_app_serves_index():
     response = client.get("/")
 
     assert response.status_code == 200
-    assert "Prompt Workflow Studio" in response.text
-    assert "/static/app.js" in response.text
-    assert "创建示例 Crew" in response.text
-    assert 'id="deleteLastTurnButton"' in response.text
-    assert 'id="deleteConversationButton"' in response.text
-    assert 'id="workflowControls"' in response.text
-    assert 'id="progressList" class="pipeline-track"></div>' in response.text
+    assert "Agent Workflow Studio" in response.text
+    assert 'id="root"' in response.text
+    assert "/static/assets/index-" in response.text
+
+
+def test_web_app_serves_built_react_assets():
+    response = client.get("/")
+    asset_path = response.text.split('src="')[1].split('"')[0]
+    asset_response = client.get(asset_path)
+
+    assert asset_response.status_code == 200
+    assert "javascript" in asset_response.headers["content-type"]
 
 
 def test_workflow_options_endpoint_lists_registered_workflows():

@@ -436,6 +436,34 @@ async def delete_latest_turn(
     return DeleteTurnResponse(deleted_messages=deleted_messages)
 
 
+@router.delete(
+    "/{conversation_id}/turns/from/{message_id}",
+    response_model=DeleteTurnResponse,
+)
+async def rewind_conversation(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Rewind a conversation to immediately before the selected user turn."""
+
+    deleted_messages = await ConversationService.delete_from_message(
+        db, conversation_id, message_id
+    )
+    if deleted_messages < 0:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if deleted_messages == 0:
+        raise HTTPException(
+            status_code=409,
+            detail="The selected message is not a user turn in this conversation",
+        )
+
+    checkpointer = get_checkpointer()
+    if checkpointer is not None:
+        await checkpointer.adelete_thread(str(conversation_id))
+    return DeleteTurnResponse(deleted_messages=deleted_messages)
+
+
 @router.get("/{conversation_id}/messages", response_model=List[MessageResponse])
 async def get_messages(
     conversation_id: uuid.UUID,

@@ -1,5 +1,12 @@
 """FastAPI main application entry point."""
 
+import asyncio
+import sys
+
+if sys.platform == "win32":
+    # Psycopg's async connection requires a selector-based loop on Windows.
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -8,11 +15,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.api.routes import conversation, crew, workflow
+from app.api.routes import conversation, crew, dsl, workflow
 from app.core.langgraph.checkpoint import close_checkpointer, init_checkpointer
 from app.core.langgraph.store import close_store, init_store
 
-WEB_DIR = Path(__file__).resolve().parent / "web"
+WEB_DIR = Path(__file__).resolve().parent / "web" / "dist"
 
 # Create FastAPI app with metadata for OpenAPI/Swagger docs
 app = FastAPI(
@@ -38,6 +45,7 @@ app.include_router(conversation.chat_router, prefix="/api")
 app.include_router(conversation.router, prefix="/api")
 app.include_router(crew.router, prefix="/api")
 app.include_router(workflow.router, prefix="/api")
+app.include_router(dsl.router, prefix="/api")
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
 # Add other routers here as they are implemented
@@ -52,7 +60,7 @@ async def health_check():
 
 @app.get("/", include_in_schema=False)
 async def web_app():
-    """Serve the lightweight chat UI."""
+    """Serve the React workflow studio."""
 
     return FileResponse(WEB_DIR / "index.html")
 
@@ -75,11 +83,15 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    
-    # Run the application with uvicorn
-    uvicorn.run(
-        "app.main:app",
+
+    config = uvicorn.Config(
+        app,
         host=settings.host,
         port=settings.port,
-        reload=settings.debug,
+        reload=False,
     )
+    server = uvicorn.Server(config)
+    if sys.platform == "win32":
+        asyncio.run(server.serve(), loop_factory=asyncio.SelectorEventLoop)
+    else:
+        asyncio.run(server.serve())

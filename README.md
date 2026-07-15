@@ -17,6 +17,8 @@
 - SSE 工作流进度事件
 - Agent 代码骨架生成器
 - Workflow 代码骨架生成器
+- Agent / Workflow DSL 可视化设计器
+- 按用户轮回溯会话并同步重置 checkpoint
 - 端到端测试覆盖 crew -> agents -> chat -> messages 入库
 
 ## 架构概览
@@ -175,6 +177,18 @@ workflow state，并自动注入每个 Agent 节点：
 
 生成器输出的是可读、可改、可继续维护的 Python 代码。
 
+### DSL 设计器
+
+Web 工作台右上角的代码图标可以打开 DSL 设计器。设计器支持：
+
+- 在 Agent 和 Workflow DSL 之间切换
+- 拖动节点、创建连接、编辑节点属性
+- 图形画布与 JSON DSL 双向同步
+- 调用现有生成器校验、保存并刷新代码骨架
+
+生成代码是显式操作。刷新 Agent 骨架时，节点名不变会保留对应业务代码块；
+DSL 删除节点时，对应业务代码块也会被删除，页面会在生成前要求确认。
+
 ## 记忆
 
 短期记忆使用 LangGraph checkpoint，挂在 workflow 层。
@@ -184,6 +198,9 @@ config={"configurable": {"thread_id": str(conversation.id)}}
 ```
 
 同一个 `conversation_id` 会复用同一个 checkpoint thread。
+
+页面可从任意一条用户消息开始回溯。回溯会删除该消息及其后的数据库消息，
+同时删除该会话的 checkpoint；下一次运行会从保留的数据库历史重新构造短期记忆。
 
 长期记忆使用 LangGraph store，按用户隔离：
 
@@ -340,9 +357,31 @@ database/schema.sql
 
 ### 4. 启动服务
 
+前端使用 React、TypeScript 和 Vite。首次运行或修改前端后先构建：
+
 ```bash
-uvicorn app.main:app --reload
+cd frontend
+pnpm install
+pnpm build
+cd ..
 ```
+
+```bash
+python -m app.main
+```
+
+Windows 下请使用这个项目入口启动，它会使用 Psycopg 异步 checkpoint 所需的
+Selector 事件循环。默认服务地址为 `http://127.0.0.1:8765`。
+
+生产构建输出到 `app/web/dist`，由 FastAPI 在同一地址提供。前端独立开发时：
+
+```bash
+cd frontend
+pnpm dev
+```
+
+Vite 使用 `http://127.0.0.1:5173`，并将 `/api` 代理到
+`http://127.0.0.1:8765`。
 
 接口文档：
 

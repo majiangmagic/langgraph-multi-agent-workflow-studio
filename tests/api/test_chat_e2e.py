@@ -293,3 +293,58 @@ async def test_delete_latest_turn_removes_last_user_and_assistant_messages(db_se
         ]
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_rewind_from_selected_turn_removes_that_turn_and_everything_after(db_session):
+    """A selected historical user turn should become the rewind boundary."""
+
+    async def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            crew = await client.post(
+                "/api/crews/",
+                json={"name": "Rewind Crew", "settings": {"workflow_type": "supervisor_simple"}},
+            )
+            conversation = await client.post(
+                "/api/conversations/",
+                json={"user_id": "rewind-user", "crew_id": crew.json()["id"]},
+            )
+            conversation_id = conversation.json()["id"]
+
+            message_ids = []
+            for role, content in [
+                ("user", "keep question"),
+                ("assistant", "keep answer"),
+                ("user", "rewrite this"),
+                ("assistant", "old answer"),
+                ("user", "later question"),
+                ("assistant", "later answer"),
+            ]:
+                response = await client.post(
+                    f"/api/conversations/{conversation_id}/messages",
+                    json={"role": role, "content": content},
+                )
+                message_ids.append(response.json()["id"])
+
+            rewind = await client.delete(
+                f"/api/conversations/{conversation_id}/turns/from/{message_ids[2]}"
+            )
+            assert rewind.status_code == 200
+            assert rewind.json()["deleted_messages"] == 4
+
+            messages = await client.get(
+                f"/api/conversations/{conversation_id}/messages"
+            )
+            assert [item["content"] for item in messages.json()] == [
+                "keep question",
+                "keep answer",
+            ]
+    finally:
+        app.dependency_overrides.pop(get_db, None)

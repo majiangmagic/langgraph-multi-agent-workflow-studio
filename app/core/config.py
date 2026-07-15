@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables"""
     
     # Server settings
-    port: int = 8000
+    port: int = 8765
     host: str = "0.0.0.0"
     debug: bool = False
     env: str = "development"
