@@ -46,8 +46,10 @@ def test_workflow_options_endpoint_lists_registered_workflows():
     assert prompt_workflow["entrypoint"] == "scene_document_editor"
     assert {node["name"] for node in prompt_workflow["nodes"]} == {
         "scene_document_editor",
-        "scene_document_processor",
-        "character_identity_resolver",
+            "scene_document_processor",
+            "identity_impact_router",
+            "character_identity_resolver",
+            "visual_impact_router",
         "visual_semantic_resolver",
         "prompt_compiler",
         "consistency_validator",

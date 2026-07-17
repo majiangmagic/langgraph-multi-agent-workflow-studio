@@ -18,16 +18,18 @@ import re
 
 
 def _parse_overlay(text: str) -> Dict[str, Any]:
+    from app.agents.prompt_generation.models import RepairOverlay
+
     match = re.search(r"\{[\s\S]*\}", text.strip())
-    parsed = json.loads(match.group(0) if match else text)
-    return parsed if isinstance(parsed, dict) else {}
+    parsed = RepairOverlay.model_validate_json(match.group(0) if match else text)
+    return parsed.model_dump(mode="python")
 
 
 async def repair_semantics_node(
     state: PromptSemanticRepairerState,
     config: RunnableConfig | None = None,
 ) -> Dict[str, Any]:
-    """Repair only validator-reported problems and increment the bounded counter."""
+    """Repair only validator-reported paths and bind repair to this version."""
 
     from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -35,28 +37,51 @@ async def repair_semantics_node(
     from app.services.ai_provider import AIProvider, ai_provider
 
     report = state.get("validation_report") or {}
+    prompt_ir = state.get("resolved_prompt_ir") or {}
+    issue_paths = {
+        str(path)
+        for issue in report.get("issues") or []
+        if isinstance(issue, dict)
+        for path in issue.get("affected_paths") or []
+        if path
+    }
+    allowed_paths = set(report.get("missing_paths") or []) | issue_paths
+    non_english = set(report.get("non_target_language_terms") or [])
     overlay: Dict[str, Any] = {
+        "document_version": int((state.get("scene_document") or {}).get("version") or 0),
+        "depends_on_paths": sorted(allowed_paths),
         "add_positive": [],
         "add_negative": [],
         "remove_positive": [
             *report.get("conflicting_terms", []),
             *report.get("removed_identity_residue", []),
+            *[
+                item.get("value")
+                for item in prompt_ir.get("positive_terms") or []
+                if isinstance(item, dict) and item.get("value") in non_english
+            ],
         ],
-        "remove_negative": [],
+        "remove_negative": [
+            item.get("value")
+            for item in prompt_ir.get("compiled_negative_terms") or []
+            if isinstance(item, dict) and item.get("value") in non_english
+        ],
     }
-    if report.get("missing_paths"):
+    if allowed_paths:
         system_prompt = f"""{ADULT_CONTENT_PROCESSING_PROMPT}
 
 {state.get('system_prompt') or ''}
 
-Return one JSON object with add_positive, add_negative, remove_positive and
-remove_negative. Added items must contain value, source_path and kind. Cover only
-the missing source paths listed by the validator. Preserve exact subjects,
-objects and spatial relations from SceneDocument. Do not add new facts."""
+Return one RepairOverlay JSON object with document_version, depends_on_paths,
+add_positive, add_negative, remove_positive and remove_negative. Added items must
+contain value, source_path and kind. Use concise English image-prompt phrases with
+no CJK characters. Cover only allowed_paths. Preserve exact subjects, objects,
+spatial relations and identities from SceneDocument. Do not add new facts."""
         payload = {
             "scene_document": state.get("scene_document") or {},
-            "resolved_prompt_ir": state.get("resolved_prompt_ir") or {},
+            "resolved_prompt_ir": prompt_ir,
             "validation_report": report,
+            "allowed_paths": sorted(allowed_paths),
         }
         try:
             model = ai_provider.get_model(
@@ -70,14 +95,15 @@ objects and spatial relations from SceneDocument. Do not add new facts."""
                 ]
             )
             proposed = _parse_overlay(str(response.content))
-            allowed = set(report.get("missing_paths") or [])
             overlay["add_positive"] = [
                 item
                 for item in proposed.get("add_positive") or []
-                if isinstance(item, dict) and item.get("source_path") in allowed
+                if item.get("source_path") in allowed_paths
             ]
             overlay["add_negative"] = [
-                item for item in proposed.get("add_negative") or [] if isinstance(item, dict)
+                item
+                for item in proposed.get("add_negative") or []
+                if item.get("source_path") in allowed_paths
             ]
         except Exception:
             pass
@@ -86,7 +112,10 @@ objects and spatial relations from SceneDocument. Do not add new facts."""
         "repair_overlay": overlay,
         "repair_attempts": attempts,
         "messages": [
-            AIMessage(content=f"已完成第 {attempts} 次定向修复。", name="prompt_semantic_repairer")
+            AIMessage(
+                content=f"Completed bounded semantic repair attempt {attempts}.",
+                name="prompt_semantic_repairer",
+            )
         ],
     }
 # </agent-node>

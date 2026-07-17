@@ -26,3 +26,5 @@ class SceneDocumentProcessorState(TypedDict):
     patch_proposal: Optional[Dict[str, Any]]
     impact_set: Optional[Dict[str, Any]]
     patch_error: Optional[str]
+    clarification_request: Optional[str]
+    document_valid: Optional[bool]

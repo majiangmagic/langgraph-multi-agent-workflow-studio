@@ -13,7 +13,8 @@
     "impact_set": { "type": "dict", "optional": true },
     "resolved_prompt_ir": { "type": "dict", "optional": true },
     "validation_report": { "type": "dict", "optional": true },
-    "needs_repair": { "type": "boolean", "optional": true }
+    "needs_repair": { "type": "boolean", "optional": true },
+    "has_blocking_errors": { "type": "boolean", "optional": true }
   },
   "entrypoint": "validate_prompt",
   "nodes": {

@@ -25,6 +25,7 @@ class WorkflowNodeDsl:
     extension: Optional[str]
     on_error: str
     config: Dict[str, Any]
+    inputs: Dict[str, str]
 
 
 @dataclass(frozen=True)
@@ -188,6 +189,10 @@ def parse_nodes(raw_nodes: Any) -> List[WorkflowNodeDsl]:
                 extension=snake_case(str(extension)) if extension else None,
                 on_error=on_error,
                 config=dict(node_config.get("config") or {}),
+                inputs={
+                    str(key): str(value)
+                    for key, value in (node_config.get("inputs") or {}).items()
+                },
             )
         )
     return nodes
@@ -504,6 +509,7 @@ def render_workflow_metadata(workflow: WorkflowDsl) -> str:
                 "on_error": node.on_error,
                 **({"state_agent": node.state_agent} if node.state_agent else {}),
                 **({"config": node.config} if node.config else {}),
+                **({"inputs": node.inputs} if node.inputs else {}),
             }
             for node in workflow.nodes
         ],
@@ -651,11 +657,18 @@ def render_node_call(
     node: WorkflowNodeDsl,
     extension_by_node: Dict[str, str],
 ) -> str:
-    extension = (
-        f'\n            extension={extension_by_node[node.name]}("{node.name}"),'
-        if node.name in extension_by_node
-        else ""
-    )
+    if node.name in extension_by_node:
+        input_argument = (
+            f", inputs={node.inputs!r}"
+            if node.extension == "pipeline_context" and node.inputs
+            else ""
+        )
+        extension = (
+            f'\n            extension={extension_by_node[node.name]}('
+            f'"{node.name}"{input_argument}),'
+        )
+    else:
+        extension = ""
     error_policy = (
         "\n            continue_on_error=True,"
         if node.on_error == "continue"

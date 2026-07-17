@@ -39,63 +39,158 @@
   "nodes": {
     "scene_document_editor": {
       "agent": "scene_document_editor",
-      "display_name": "理解本轮修改",
+      "display_name": "解析画面需求",
       "agent_package": "prompt_generation/scene_document_editor",
-      "extension": "pipeline_context"
+      "extension": "pipeline_context",
+      "inputs": {}
     },
     "scene_document_processor": {
       "agent": "scene_document_processor",
-      "display_name": "更新画面工程",
+      "display_name": "构建画面工程",
       "agent_package": "prompt_generation/scene_document_processor",
-      "extension": "pipeline_context"
+      "extension": "pipeline_context",
+      "inputs": {
+        "scene_document": "scene_document_editor.scene_document",
+        "previous_scene_document": "scene_document_editor.previous_scene_document",
+        "previous_resolved_prompt_ir": "scene_document_editor.previous_resolved_prompt_ir",
+        "patch_proposal": "scene_document_editor.patch_proposal",
+        "clarification_request": "scene_document_editor.clarification_request"
+      }
+    },
+    "identity_impact_router": {
+      "agent": "prompt_impact_router",
+      "state_agent": "prompt_impact_router",
+      "display_name": "判断身份变化",
+      "agent_package": "prompt_generation/prompt_impact_router",
+      "extension": "pipeline_context",
+      "inputs": {
+        "impact_set": "scene_document_processor.impact_set"
+      }
     },
     "character_identity_resolver": {
       "agent": "character_identity_resolver",
       "display_name": "解析角色身份",
       "agent_package": "prompt_generation/character_identity_resolver",
-      "extension": "pipeline_context"
+      "extension": "pipeline_context",
+      "inputs": {
+        "scene_document": "scene_document_processor.scene_document",
+        "previous_resolved_prompt_ir": "scene_document_processor.previous_resolved_prompt_ir",
+        "impact_set": "scene_document_processor.impact_set"
+      }
+    },
+    "visual_impact_router": {
+      "agent": "prompt_impact_router",
+      "state_agent": "prompt_impact_router",
+      "display_name": "判断视觉变化",
+      "agent_package": "prompt_generation/prompt_impact_router",
+      "extension": "pipeline_context",
+      "inputs": {
+        "impact_set": "scene_document_processor.impact_set"
+      }
     },
     "visual_semantic_resolver": {
       "agent": "visual_semantic_resolver",
       "display_name": "解析视觉语义",
       "agent_package": "prompt_generation/visual_semantic_resolver",
-      "extension": "pipeline_context"
+      "extension": "pipeline_context",
+      "inputs": {
+        "scene_document": "scene_document_processor.scene_document",
+        "previous_resolved_prompt_ir": "scene_document_processor.previous_resolved_prompt_ir",
+        "impact_set": "scene_document_processor.impact_set"
+      }
     },
     "prompt_compiler": {
       "agent": "prompt_compiler",
       "display_name": "编译 Prompt IR",
       "agent_package": "prompt_generation/prompt_compiler",
-      "extension": "pipeline_context"
+      "extension": "pipeline_context",
+      "inputs": {
+        "scene_document": "scene_document_processor.scene_document",
+        "impact_set": "scene_document_processor.impact_set",
+        "previous_resolved_prompt_ir": "scene_document_processor.previous_resolved_prompt_ir",
+        "identity_terms": "character_identity_resolver.identity_terms",
+        "identity_tag_records": "character_identity_resolver.identity_tag_records",
+        "identity_tag_resolutions": "character_identity_resolver.identity_tag_resolutions",
+        "identity_tag_adjudication": "character_identity_resolver.identity_tag_adjudication",
+        "visual_search_terms": "visual_semantic_resolver.visual_search_terms",
+        "atomic_terms": "visual_semantic_resolver.atomic_terms",
+        "relation_terms": "visual_semantic_resolver.relation_terms",
+        "negative_terms": "visual_semantic_resolver.negative_terms",
+        "visual_tag_records": "visual_semantic_resolver.visual_tag_records",
+        "visual_tag_resolutions": "visual_semantic_resolver.visual_tag_resolutions",
+        "visual_tag_adjudication": "visual_semantic_resolver.visual_tag_adjudication",
+        "repair_overlay": "semantic_repairer.repair_overlay"
+      }
     },
     "consistency_validator": {
       "agent": "prompt_consistency_validator",
       "display_name": "检查一致性",
       "agent_package": "prompt_generation/prompt_consistency_validator",
-      "extension": "pipeline_context"
+      "extension": "pipeline_context",
+      "inputs": {
+        "scene_document": "scene_document_processor.scene_document",
+        "impact_set": "scene_document_processor.impact_set",
+        "resolved_prompt_ir": "prompt_compiler.resolved_prompt_ir"
+      }
     },
     "semantic_repairer": {
       "agent": "prompt_semantic_repairer",
       "display_name": "定向修复",
       "agent_package": "prompt_generation/prompt_semantic_repairer",
-      "extension": "pipeline_context"
+      "extension": "pipeline_context",
+      "inputs": {
+        "scene_document": "scene_document_processor.scene_document",
+        "resolved_prompt_ir": "prompt_compiler.resolved_prompt_ir",
+        "validation_report": "consistency_validator.validation_report"
+      }
     },
     "target_renderer": {
       "agent": "prompt_target_renderer",
-      "display_name": "渲染目标格式",
+      "display_name": "渲染并校验输出",
       "agent_package": "prompt_generation/prompt_target_renderer",
-      "extension": "pipeline_context"
+      "extension": "pipeline_context",
+      "inputs": {
+        "scene_document": "scene_document_processor.scene_document",
+        "resolved_prompt_ir": "prompt_compiler.resolved_prompt_ir",
+        "validation_report": "consistency_validator.validation_report",
+        "clarification_request": "scene_document_processor.clarification_request"
+      }
     }
   },
   "edges": [
     { "from": "scene_document_editor", "to": "scene_document_processor" },
     {
       "from": "scene_document_processor",
-      "to": ["character_identity_resolver", "visual_semantic_resolver"]
+      "to": "identity_impact_router",
+      "otherwise": "target_renderer",
+      "condition": {
+        "path": "nodes.scene_document_processor.document_valid",
+        "operator": "equals",
+        "value": true
+      }
     },
     {
-      "from": ["character_identity_resolver", "visual_semantic_resolver"],
-      "to": "prompt_compiler"
+      "from": "identity_impact_router",
+      "to": "character_identity_resolver",
+      "otherwise": "visual_impact_router",
+      "condition": {
+        "path": "nodes.identity_impact_router.should_resolve_identity",
+        "operator": "equals",
+        "value": true
+      }
     },
+    { "from": "character_identity_resolver", "to": "visual_impact_router" },
+    {
+      "from": "visual_impact_router",
+      "to": "visual_semantic_resolver",
+      "otherwise": "prompt_compiler",
+      "condition": {
+        "path": "nodes.visual_impact_router.should_resolve_visual",
+        "operator": "equals",
+        "value": true
+      }
+    },
+    { "from": "visual_semantic_resolver", "to": "prompt_compiler" },
     { "from": "prompt_compiler", "to": "consistency_validator" },
     {
       "from": "consistency_validator",

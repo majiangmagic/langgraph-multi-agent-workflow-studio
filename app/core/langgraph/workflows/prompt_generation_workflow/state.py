@@ -16,7 +16,9 @@ WORKFLOW_NAME = "prompt_generation_workflow"
 NODE_AGENTS = {
     "scene_document_editor": "scene_document_editor",
     "scene_document_processor": "scene_document_processor",
+    "identity_impact_router": "prompt_impact_router",
     "character_identity_resolver": "character_identity_resolver",
+    "visual_impact_router": "prompt_impact_router",
     "visual_semantic_resolver": "visual_semantic_resolver",
     "prompt_compiler": "prompt_compiler",
     "consistency_validator": "prompt_consistency_validator",

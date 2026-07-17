@@ -25,3 +25,4 @@ class PromptConsistencyValidatorState(TypedDict):
     resolved_prompt_ir: Optional[Dict[str, Any]]
     validation_report: Optional[Dict[str, Any]]
     needs_repair: Optional[bool]
+    has_blocking_errors: Optional[bool]

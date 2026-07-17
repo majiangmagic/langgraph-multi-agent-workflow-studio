@@ -16,7 +16,9 @@ export function MessageList({
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const latestUserMessageId = [...messages].reverse().find((message) => message.role === "user")?.id;
-  useEffect(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), [messages, pending]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, pending]);
 
   if (!messages.length && !pending) {
     return (

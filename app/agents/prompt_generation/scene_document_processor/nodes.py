@@ -35,6 +35,7 @@ def apply_patch_node(
         or empty_scene_document()
     )
     error = ""
+    clarification = state.get("clarification_request")
     try:
         proposal = validate_patch_proposal(
             state.get("patch_proposal") or {},
@@ -44,29 +45,44 @@ def apply_patch_node(
     except Exception as exc:
         error = str(exc)
         current = previous
+        clarification = clarification or (
+            "The requested scene edit could not be applied safely. Please clarify it."
+        )
 
     impact = compute_impact_set(previous, current)
     previous_ir = state.get("previous_resolved_prompt_ir") or {}
-    old_identity_values = [
-        str(item.get("value") or "").strip()
-        for item in previous_ir.get("identity_terms") or []
-        if isinstance(item, dict)
-    ]
+    previous_participants = previous.get("participants") or {}
+    current_participants = current.get("participants") or {}
     current_names = {
         str(value or "").strip().casefold()
-        for participant in (current.get("participants") or {}).values()
+        for participant in current_participants.values()
         for value in (participant.get("identity") or {}).values()
         if value
     }
+    removed_resolved_identities = []
+    for item in previous_ir.get("identity_terms") or []:
+        if not isinstance(item, dict):
+            continue
+        value = str(item.get("value") or "").strip()
+        participant_id = str(item.get("participant_id") or "").strip()
+        if not value:
+            continue
+        if participant_id:
+            previous_identity = (
+                previous_participants.get(participant_id, {}).get("identity") or {}
+            )
+            current_identity = (
+                current_participants.get(participant_id, {}).get("identity") or {}
+            )
+            if participant_id not in current_participants or previous_identity != current_identity:
+                removed_resolved_identities.append(value)
+        elif value.casefold() not in current_names:
+            removed_resolved_identities.append(value)
     impact["removed_identity_terms"] = list(
         dict.fromkeys(
             [
                 *impact.get("removed_identity_terms", []),
-                *[
-                    value
-                    for value in old_identity_values
-                    if value and value.casefold() not in current_names
-                ],
+                *removed_resolved_identities,
             ]
         )
     )
@@ -76,6 +92,8 @@ def apply_patch_node(
         "previous_resolved_prompt_ir": dict(previous_ir),
         "impact_set": impact,
         "patch_error": error,
+        "document_valid": not error and not clarification,
+        "clarification_request": clarification,
         "messages": [
             AIMessage(
                 content=f"SceneDocument 已更新到版本 {current['version']}。",

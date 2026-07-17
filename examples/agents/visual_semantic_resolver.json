@@ -17,6 +17,8 @@
     "relation_terms": { "type": "list", "optional": true },
     "negative_terms": { "type": "list", "optional": true },
     "visual_tag_records": { "type": "list", "optional": true },
+    "visual_tag_resolutions": { "type": "list", "optional": true },
+    "visual_tag_adjudication": { "type": "dict", "optional": true },
     "visual_search_terms": { "type": "list", "optional": true }
   },
   "entrypoint": "resolve_visual_semantics",

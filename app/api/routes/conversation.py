@@ -182,6 +182,10 @@ async def build_workflow_for_conversation(
             detail=f"Crew with ID {conversation.crew_id} not found",
         )
 
+    workflow_type = WorkflowService.get_workflow_type(crew)
+    runtime_inputs = dict(workflow_inputs or {})
+    if workflow_type == "prompt_generation_workflow":
+        runtime_inputs["_request_id"] = str(user_message.id)
     try:
         history_messages = await get_short_term_history(db, conversation.id)
         workflow, initial_state = WorkflowService.create_workflow_run(
@@ -190,7 +194,7 @@ async def build_workflow_for_conversation(
             user_id=conversation.user_id,
             user_input=user_message.content,
             messages=history_messages,
-            workflow_inputs=workflow_inputs,
+            workflow_inputs=runtime_inputs,
         )
     except ValueError as exc:
         raise HTTPException(
@@ -198,7 +202,6 @@ async def build_workflow_for_conversation(
             detail=str(exc),
         ) from exc
 
-    workflow_type = WorkflowService.get_workflow_type(crew)
     metadata = workflow_registry.get_metadata(workflow_type, fallback=False)
     entrypoint = str(metadata.get("entrypoint") or "")
     node_states = initial_state.get("nodes") or {}

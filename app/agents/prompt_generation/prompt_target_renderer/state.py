@@ -23,6 +23,7 @@ class PromptTargetRendererState(TypedDict):
     scene_document: Optional[Dict[str, Any]]
     resolved_prompt_ir: Optional[Dict[str, Any]]
     validation_report: Optional[Dict[str, Any]]
+    clarification_request: Optional[str]
     target_model: Optional[str]
     formatted_prompt: Optional[str]
     final_output: Optional[Dict[str, Any]]

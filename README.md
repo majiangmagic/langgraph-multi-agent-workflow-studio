@@ -99,20 +99,24 @@ supervisor_simple workflow
 
 ```text
 用户消息 + 上一版 SceneDocument
-  -> 请求状态编辑器 -> Patch 校验与执行
-  -> 角色身份解析 ┐
-     视觉语义解析 ┴-> Prompt Compiler -> 一致性检查
-                                      ├-> 目标模型 Renderer
-                                      `-> 定向修复（最多一次）-> Compiler
+  -> 场景编辑 Agent -> Patch 契约校验与原子提交
+  -> SceneDocument 完整性检查 -> Impact 路由
+  -> 身份变化：只解析变化的具名角色
+  -> 视觉变化：只解析受影响的事实路径
+  -> Prompt IR 编译 -> 一致性检查
+                    ├-> Renderer 与输出门禁
+                    `-> 定向修复（最多一次）-> 重新编译
 ```
 
 `SceneDocument` 是与具体模型无关的画面工程，保存稳定角色 ID、身份、动作、环境、
 复杂关系与正负约束。用户每一轮自然语言先转换成受限 `PatchProposal`，由代码事务执行；
 最终 Prompt 是从当前文档编译得到的产物，不会反向成为下一轮事实来源。
 
-角色身份解析和视觉语义解析按影响范围复用上一版 `ResolvedPromptIR`。Danbooru 是两者共享
-的标签查询基础设施，不是与角色平级的 Agent。Prompt Compiler 负责旧身份清除、来源追踪、
-正负极性和修复覆盖；规则检查发现缺失、残留或冲突时，只允许一次定向语义修复。
+Participant 明确区分具名角色、普通人物、动物、角色型参与者和物体；只有具名角色进入身份
+解析。身份和视觉解析由 `ImpactSet` 真正控制执行，并按 participant ID/source path 继承未变化
+的上一版 `ResolvedPromptIR`。Danbooru 是两者共享的标签查询基础设施，不是与角色平级的 Agent。
+Prompt Compiler 负责旧身份清除、来源追踪、正负极性和版本化修复覆盖；规则检查发现缺失、
+残留、冲突、未绑定身份或目标语言错误时，只允许一次定向语义修复。阻断错误不会伪装成成功结果。
 
 需要理解自然语言的节点统一使用成年虚构 NSFW 转换协议，准确保留允许范围内的身体交互、
 动作和空间关系；Patch、标签验证、编译、检查和 Renderer 均为确定性代码。页面提供：
@@ -224,12 +228,28 @@ Workflow，`state.py` 会根据节点和本地 Agent manifest 机械构造初始
 
 常用节点 extension：
 
-- `pipeline_context`：将上游业务字段注入当前 Agent 节点
+- `pipeline_context`：将 DSL `inputs` 明确声明的上游业务字段注入当前 Agent 节点；未声明 `inputs` 时保留兼容性的旧聚合行为
 - `supervisor`：接入官方监管者及长期记忆适配
 - `supervisor_planner`：只使用监管者做规划，后续由固定 DSL 边执行
 
 Workflow 节点可通过 `config` 覆盖本地 Agent manifest 的 prompt/model 等默认值，
 这种覆盖仍属于本地 Workflow 定义，不进入数据库。
+
+业务工作流建议显式声明节点输入，避免遍历并平铺全部上游 state：
+
+```json
+{
+  "agent": "prompt_compiler",
+  "extension": "pipeline_context",
+  "inputs": {
+    "scene_document": "scene_document_processor.scene_document",
+    "identity_terms": "character_identity_resolver.identity_terms",
+    "atomic_terms": "visual_semantic_resolver.atomic_terms"
+  }
+}
+```
+
+`inputs` 的键是目标 Agent state 字段，值为 `<workflow_node>.<field>`。生成器会把这份映射同时写入 LangGraph 适配代码和 Workflow metadata。
 
 ### 条件边与有界循环
 

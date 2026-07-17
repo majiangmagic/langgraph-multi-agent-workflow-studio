@@ -42,11 +42,28 @@ class AgentNodeExtension:
     build_workflow_update: WorkflowUpdateBuilder
 
 
-def create_pipeline_context_extension(node_name: str) -> AgentNodeExtension:
+def create_pipeline_context_extension(
+    node_name: str,
+    inputs: Optional[Dict[str, str]] = None,
+) -> AgentNodeExtension:
     """Expose upstream business fields to a generated workflow node."""
 
     def prepare_agent_state(state: Dict[str, Any]) -> Dict[str, Any]:
         context: Dict[str, Any] = {"user_input": state.get("user_input")}
+        if inputs:
+            for target_field, source_path in inputs.items():
+                source_node, separator, source_field = source_path.partition(".")
+                if source_node == "$workflow":
+                    value = state.get(source_field)
+                elif separator:
+                    value = (state.get("nodes") or {}).get(source_node, {}).get(
+                        source_field
+                    )
+                else:
+                    value = None
+                if value is not None:
+                    context[target_field] = value
+            return {**state["nodes"][node_name], **context}
         for current_name, node_state in (state.get("nodes") or {}).items():
             if current_name == node_name:
                 continue

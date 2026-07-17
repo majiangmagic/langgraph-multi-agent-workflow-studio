@@ -1,11 +1,11 @@
-"""State schema for the visual_semantic_resolver agent."""
+"""State schema for the prompt_impact_router agent."""
 
 from typing import Any, Dict, List, Optional, TypedDict
 
 from langchain_core.messages import BaseMessage
 
 
-class VisualSemanticResolverState(TypedDict):
+class PromptImpactRouterState(TypedDict):
     """Runtime state for this generated agent."""
 
     agent_id: str
@@ -20,13 +20,6 @@ class VisualSemanticResolverState(TypedDict):
     workflow_inputs: Dict[str, Any]
 
     # 下面是 DSL 声明的业务状态字段。
-    scene_document: Optional[Dict[str, Any]]
-    previous_resolved_prompt_ir: Optional[Dict[str, Any]]
     impact_set: Optional[Dict[str, Any]]
-    atomic_terms: Optional[List[Any]]
-    relation_terms: Optional[List[Any]]
-    negative_terms: Optional[List[Any]]
-    visual_tag_records: Optional[List[Any]]
-    visual_tag_resolutions: Optional[List[Any]]
-    visual_tag_adjudication: Optional[Dict[str, Any]]
-    visual_search_terms: Optional[List[Any]]
+    should_resolve_identity: Optional[bool]
+    should_resolve_visual: Optional[bool]

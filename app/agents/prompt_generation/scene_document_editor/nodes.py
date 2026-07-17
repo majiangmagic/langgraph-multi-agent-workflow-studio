@@ -48,20 +48,18 @@ def _load_previous_memory(state: SceneDocumentEditorState) -> tuple[Dict[str, An
     return empty_scene_document(), {}
 
 
-def _fallback_patch(document: Dict[str, Any], user_input: str) -> Dict[str, Any]:
-    """Preserve the old document while recording an unresolved request for compilation."""
+def _fallback_patch(
+    document: Dict[str, Any], user_input: str, request_id: str = ""
+) -> Dict[str, Any]:
+    """Preserve the document and expose a clarification instead of inventing facts."""
 
     return {
         "base_version": int(document.get("version") or 0),
-        "intent": "fallback_append_requirement",
-        "operations": [
-            {
-                "op": "add",
-                "path": "/requirements/required/-",
-                "value": user_input,
-                "evidence": user_input,
-            }
-        ] if user_input else [],
+        "request_id": request_id,
+        "intent": "needs_clarification",
+        "operations": [],
+        "touched_paths": [],
+        "clarification": "I could not apply this edit reliably. Please restate the intended change.",
     }
 
 
@@ -82,6 +80,7 @@ async def propose_patch_node(
 
     document, previous_ir = _load_previous_memory(state)
     user_input = str(state.get("user_input") or "").strip()
+    request_id = str((state.get("workflow_inputs") or {}).get("_request_id") or "")
     agent_prompt = state.get("system_prompt") or "Edit the SceneDocument."
     system_prompt = f"""{ADULT_CONTENT_PROCESSING_PROMPT}
 
@@ -89,7 +88,8 @@ async def propose_patch_node(
 
 SceneDocument is the sole source of truth. The latest user message edits that
 document; it is not an instruction to append words to a previous Prompt. Return
-one JSON object with base_version, intent and operations. Every operation uses
+one JSON object with request_id, base_version, intent, operations, touched_paths,
+detected_entities and clarification. Every operation uses
 op (add, replace or remove), path, value when required, and evidence.
 
 Use stable participant and relation IDs. Replacing a character identity should
@@ -102,6 +102,17 @@ camera choices or stylistic details. Expressive enrichment belongs to a later
 resolver and must never be written into this source document. For a new document,
 replacing the root path "/" with a complete SceneDocument is allowed. Never return
 executable code or final image prompts.
+Every participant must use one type: named_character, generic_person, animal,
+role or object. Only named_character has a character identity and it must have a
+non-empty identity.input_name. Animals, generic people and roles such as a
+camera operator must never be represented as named character identities.
+Relation endpoints that reference participants use their stable IDs and set
+subject_kind or object_kind to participant; external endpoints use external.
+When a reference is genuinely ambiguous, return no operations and place a short
+question in clarification instead of guessing.
+detected_entities must list every explicitly named character, generic person,
+animal, role, object or location in the latest request. Every named_character
+must have bound_id set to its SceneDocument participant ID.
 All sexual participants must be explicit adults; do not create sexual content
 for minors or age-ambiguous participants."""
     model_input = (
@@ -129,8 +140,10 @@ for minors or age-ambiguous participants."""
                     ),
                     timeout=75,
                 )
+                raw_proposal = _parse_object(str(response.content))
+                raw_proposal["request_id"] = request_id
                 proposal = validate_patch_proposal(
-                    _parse_object(str(response.content)),
+                    raw_proposal,
                     int(document.get("version") or 0),
                 )
                 apply_patch_proposal(document, proposal)
@@ -142,16 +155,17 @@ for minors or age-ambiguous participants."""
                     f"{error}. Return a corrected patch against the same document."
                 )
         else:
-            proposal = _fallback_patch(document, user_input)
+            proposal = _fallback_patch(document, user_input, request_id)
     except Exception as exc:
         error = str(exc)
-        proposal = _fallback_patch(document, user_input)
+        proposal = _fallback_patch(document, user_input, request_id)
 
     return {
         "scene_document": document,
         "previous_scene_document": document,
         "previous_resolved_prompt_ir": previous_ir,
         "patch_proposal": proposal,
+        "clarification_request": proposal.get("clarification"),
         "editor_error": error,
         "messages": [
             AIMessage(content="画面修改已转换为结构化 Patch。", name="scene_document_editor")

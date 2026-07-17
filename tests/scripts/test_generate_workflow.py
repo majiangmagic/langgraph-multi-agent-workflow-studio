@@ -300,3 +300,40 @@ def test_generate_workflow_supports_conditional_bounded_loop(tmp_path, monkeypat
     assert "otherwise_target='renderer'" in graph_text
     assert '"then": \'repairer\'' in graph_text
     assert '"otherwise": \'renderer\'' in graph_text
+
+
+def test_generate_workflow_supports_explicit_pipeline_inputs(tmp_path, monkeypatch):
+    workflows_dir = tmp_path / "workflows"
+    monkeypatch.setattr(generate_workflow, "WORKFLOWS_DIR", workflows_dir)
+    dsl_path = tmp_path / "explicit-inputs.json"
+    dsl_path.write_text(
+        json.dumps(
+            {
+                "kind": "workflow",
+                "name": "explicit_inputs_workflow",
+                "nodes": {
+                    "source": {"agent": "source_agent"},
+                    "consumer": {
+                        "agent": "consumer_agent",
+                        "extension": "pipeline_context",
+                        "inputs": {
+                            "scene_document": "source.scene_document",
+                            "impact_set": "source.impact_set",
+                        },
+                    },
+                },
+                "edges": [
+                    {"from": "source", "to": "consumer"},
+                    {"from": "consumer", "to": "END"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert generate_workflow.main([str(dsl_path)]) == 0
+    graph_text = (workflows_dir / "explicit_inputs_workflow" / "graph.py").read_text(
+        encoding="utf-8"
+    )
+    assert "inputs={'scene_document': 'source.scene_document', 'impact_set': 'source.impact_set'}" in graph_text
+    assert "'inputs': {'scene_document': 'source.scene_document'" in graph_text

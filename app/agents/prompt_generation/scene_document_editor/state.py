@@ -24,4 +24,5 @@ class SceneDocumentEditorState(TypedDict):
     previous_scene_document: Optional[Dict[str, Any]]
     previous_resolved_prompt_ir: Optional[Dict[str, Any]]
     patch_proposal: Optional[Dict[str, Any]]
+    clarification_request: Optional[str]
     editor_error: Optional[str]

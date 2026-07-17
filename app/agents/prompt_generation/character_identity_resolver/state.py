@@ -25,4 +25,6 @@ class CharacterIdentityResolverState(TypedDict):
     impact_set: Optional[Dict[str, Any]]
     identity_terms: Optional[List[Any]]
     identity_tag_records: Optional[List[Any]]
+    identity_tag_resolutions: Optional[List[Any]]
+    identity_tag_adjudication: Optional[Dict[str, Any]]
     identity_search_terms: Optional[List[Any]]

@@ -14,6 +14,7 @@
     "previous_scene_document": { "type": "dict", "optional": true },
     "previous_resolved_prompt_ir": { "type": "dict", "optional": true },
     "patch_proposal": { "type": "dict", "optional": true },
+    "clarification_request": { "type": "string", "optional": true },
     "editor_error": { "type": "string", "optional": true }
   },
   "entrypoint": "propose_patch",
