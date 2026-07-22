@@ -74,6 +74,10 @@ def test_workflow_options_endpoint_lists_registered_workflows():
         "END",
     }
     assert all(edge["from"] == "supervisor" for edge in conditional_edges)
+    supervisor = next(
+        node for node in prompt_workflow["nodes"] if node["name"] == "supervisor"
+    )
+    assert "虚构成年 NSFW" in supervisor["config"]["prompt"]
     assert {
         edge["to"]
         for edge in prompt_workflow["edges"]
