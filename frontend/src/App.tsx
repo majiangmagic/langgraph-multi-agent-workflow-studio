@@ -37,26 +37,18 @@ type Confirmation = {
 function controlsFor(workflow?: Workflow): WorkflowControl[] {
   if (!workflow) return [];
   if (workflow.ui.controls?.length) return workflow.ui.controls;
-  if (workflow.ui.target_models?.length) {
-    return [{
-      key: "target_model",
-      label: "目标模型",
-      type: "select",
-      default: workflow.ui.default_target_model,
-      options: workflow.ui.target_models,
-    }];
-  }
   return [];
 }
 
 function initialInputs(controls: WorkflowControl[], current: WorkflowInputs = {}) {
   return Object.fromEntries(
     controls.map((control) => {
-      const options = control.options.map((option) => option.value);
+      const controlOptions = control.options ?? [];
+      const options = controlOptions.map((option) => option.value);
       const previous = current[control.key];
-      const value = options.includes(previous)
+      const value = typeof previous === "string" && (!options.length || options.includes(previous))
         ? previous
-        : control.default ?? control.options[0]?.value ?? "";
+        : control.default ?? controlOptions[0]?.value ?? "";
       return [control.key, value];
     }),
   );

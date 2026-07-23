@@ -28,7 +28,7 @@ def prepare_context_node(
     # 这里可以读取 state["system_prompt"], state["model"], state["temperature"]。
     return {
         "prepared_context": {
-            "scene_document": dict(state.get("scene_document") or {}),
+            "identity_context": dict(state.get("identity_context") or {}),
             "previous_resolved_prompt_ir": dict(
                 state.get("previous_resolved_prompt_ir") or {}
             ),
@@ -50,7 +50,7 @@ def collect_identities_node(
     """Collect participants that have an explicit identity to resolve."""
 
     context = dict(state.get("prepared_context") or {})
-    participants = (context.get("scene_document") or {}).get("participants") or {}
+    participants = (context.get("identity_context") or {}).get("participants") or {}
     impact = context.get("impact_set") or {}
     changed_ids = set(impact.get("identity_changed_participant_ids") or [])
     incremental = bool(context.get("previous_resolved_prompt_ir")) and bool(changed_ids)
@@ -106,7 +106,7 @@ async def resolve_identities_node(
     from app.services.ai_provider import AIProvider, ai_provider
 
     state = {**state, **dict(state.get("prepared_context") or {})}
-    document = state.get("scene_document") or {}
+    document = state.get("identity_context") or {}
     previous_ir = state.get("previous_resolved_prompt_ir") or {}
     impact = state.get("impact_set") or {}
     participants = document.get("participants") or {}

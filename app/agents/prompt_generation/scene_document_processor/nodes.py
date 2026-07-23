@@ -259,3 +259,56 @@ def validate_document_node(
         raise ValueError("scene document processor did not produce document_valid")
     return {"scene_document": normalize_scene_document(state.get("scene_document") or {})}
 # </agent-node>
+
+
+# <agent-node name="build_agent_contexts">
+# 中文注意：
+# 1. 节点名 "build_agent_contexts" 是 DSL 的稳定标识，不要随手改名。
+# 2. 只要 DSL 里还保留这个节点名，刷新骨架时会保留本代码块里的业务逻辑。
+# 3. 如果新 DSL 删除了这个节点名，生成器会删除整个代码块，即使里面写过业务代码。
+def build_agent_contexts_node(
+    state: SceneDocumentProcessorState,
+    config: RunnableConfig | None = None,
+) -> Dict[str, Any]:
+    """按下游职责切割 SceneDocument，避免各 Agent 重新解释完整输入。"""
+
+    from copy import deepcopy
+
+    document = dict(state.get("scene_document") or {})
+    participants = document.get("participants") or {}
+    identity_context = {
+        "version": int(document.get("version") or 0),
+        "participants": {
+            participant_id: {
+                "type": participant.get("type"),
+                "identity": deepcopy(participant.get("identity") or {}),
+            }
+            for participant_id, participant in participants.items()
+            if isinstance(participant, dict)
+        },
+    }
+    visual_context = {
+        key: deepcopy(document.get(key))
+        for key in (
+            "version",
+            "environment",
+            "composition",
+            "relations",
+            "requirements",
+            "revision",
+        )
+    }
+    visual_context["participants"] = {
+        participant_id: {
+            key: deepcopy(value)
+            for key, value in participant.items()
+            if key != "identity"
+        }
+        for participant_id, participant in participants.items()
+        if isinstance(participant, dict)
+    }
+    return {
+        "identity_context": identity_context,
+        "visual_context": visual_context,
+    }
+# </agent-node>

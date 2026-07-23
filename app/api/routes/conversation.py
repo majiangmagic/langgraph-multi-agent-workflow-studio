@@ -289,9 +289,11 @@ async def build_workflow_for_conversation(
         )
 
     workflow_type = WorkflowService.get_workflow_type(crew)
-    runtime_inputs = dict(workflow_inputs or {})
-    if workflow_type == "prompt_generation_workflow":
-        runtime_inputs["_request_id"] = str(user_message.id)
+    request_context = {
+        "request_id": str(user_message.id),
+        "conversation_id": str(conversation.id),
+        "user_id": conversation.user_id,
+    }
     try:
         history_messages = await get_short_term_history(db, conversation.id)
         workflow, initial_state = WorkflowService.create_workflow_run(
@@ -300,7 +302,8 @@ async def build_workflow_for_conversation(
             user_id=conversation.user_id,
             user_input=user_message.content,
             messages=history_messages,
-            workflow_inputs=runtime_inputs,
+            workflow_inputs=dict(workflow_inputs or {}),
+            request_context=request_context,
         )
     except ValueError as exc:
         raise HTTPException(

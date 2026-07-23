@@ -85,7 +85,7 @@
       "agent_package": "prompt_generation/character_identity_resolver",
       "extension": "pipeline_context",
       "inputs": {
-        "scene_document": "scene_document_processor.scene_document",
+        "identity_context": "scene_document_processor.identity_context",
         "previous_resolved_prompt_ir": "scene_document_processor.previous_resolved_prompt_ir",
         "impact_set": "scene_document_processor.impact_set"
       }
@@ -106,7 +106,7 @@
       "agent_package": "prompt_generation/visual_semantic_resolver",
       "extension": "pipeline_context",
       "inputs": {
-        "scene_document": "scene_document_processor.scene_document",
+        "visual_context": "scene_document_processor.visual_context",
         "previous_resolved_prompt_ir": "scene_document_processor.previous_resolved_prompt_ir",
         "impact_set": "scene_document_processor.impact_set"
       }

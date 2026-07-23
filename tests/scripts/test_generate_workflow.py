@@ -81,6 +81,8 @@ def test_generate_workflow_writes_to_patched_workflows_dir(tmp_path, monkeypatch
     assert '"researcher": "research_agent"' in state_text
     assert '"reviewer": "review_supervisor"' in state_text
     assert "workflow_inputs: Optional[Dict[str, Any]] = None" in state_text
+    assert "request_context: Optional[Dict[str, Any]] = None" in state_text
+    assert "request_context=request_context" in state_text
 
 
 def test_generate_workflow_normalizes_generic_ui_controls():
@@ -100,7 +102,20 @@ def test_generate_workflow_normalizes_generic_ui_controls():
                             {"value": "expressive", "label": "Expressive"},
                             {"value": "faithful", "label": "Faithful"},
                         ],
-                    }
+                    },
+                    {
+                        "key": "Creativity",
+                        "type": "slider",
+                        "default": 0.6,
+                        "min": 0,
+                        "max": 1,
+                        "step": 0.1,
+                    },
+                    {
+                        "key": "Future Control",
+                        "type": "future-widget",
+                        "default": "custom-value",
+                    },
                 ]
             },
         }
@@ -110,6 +125,14 @@ def test_generate_workflow_normalizes_generic_ui_controls():
     assert control["key"] == "prompt_strategy"
     assert control["type"] == "segmented"
     assert control["default"] == "expressive"
+    slider = workflow.ui["controls"][1]
+    assert slider["key"] == "creativity"
+    assert slider["type"] == "slider"
+    assert slider["default"] == "0.6"
+    assert slider["options"] == []
+    future = workflow.ui["controls"][2]
+    assert future["type"] == "future-widget"
+    assert future["default"] == "custom-value"
 
 
 def test_generate_workflow_rejects_edges_to_missing_nodes(tmp_path, monkeypatch):

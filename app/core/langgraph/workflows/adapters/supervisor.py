@@ -115,6 +115,7 @@ def build_workflow_agents(
         "messages",
         "user_input",
         "workflow_inputs",
+        "request_context",
         "status",
         "error",
         "tools",

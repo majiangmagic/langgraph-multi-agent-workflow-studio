@@ -80,6 +80,12 @@ def test_generate_agent_preserves_existing_node_blocks(tmp_path, monkeypatch):
     assert "prompt" in (
         agents_dir / "research_agent" / "config_defaults.json"
     ).read_text(encoding="utf-8")
+    state_text = (agents_dir / "research_agent" / "state.py").read_text(
+        encoding="utf-8"
+    )
+    assert "本轮未经业务拆分的完整用户输入" in state_text
+    assert "下游节点应通过 Workflow DSL inputs" in state_text
+    assert "request_context: Dict[str, Any]" in state_text
 
 
 def test_generate_agent_deletes_blocks_missing_from_new_dsl(tmp_path, monkeypatch):
@@ -180,7 +186,8 @@ def test_prompt_agents_use_real_internal_stages():
             "prepare_context", "prepare_request", "propose_patch", "validate_patch"
         ],
         "scene_document_processor": [
-            "prepare_context", "validate_patch", "apply_patch", "validate_document"
+            "prepare_context", "validate_patch", "apply_patch", "validate_document",
+            "build_agent_contexts"
         ],
         "character_identity_resolver": [
             "prepare_context", "collect_identities", "resolve_identities", "validate_identity_result"

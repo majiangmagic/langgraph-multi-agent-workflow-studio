@@ -6,9 +6,13 @@ export type WorkflowControlOption = {
 export type WorkflowControl = {
   key: string;
   label?: string;
-  type?: "select" | "segmented";
+  type?: string;
   default?: string;
-  options: WorkflowControlOption[];
+  options?: WorkflowControlOption[];
+  placeholder?: string;
+  min?: number | string;
+  max?: number | string;
+  step?: number | string;
 };
 
 export type WorkflowNode = {
@@ -37,8 +41,6 @@ export type Workflow = {
     input_placeholder?: string;
     input_hint?: string;
     controls?: WorkflowControl[];
-    target_models?: WorkflowControlOption[];
-    default_target_model?: string;
   };
 };
 

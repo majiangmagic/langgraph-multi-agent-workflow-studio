@@ -10,7 +10,7 @@
     "temperature": 0.2
   },
   "state": {
-    "scene_document": { "type": "dict", "optional": true },
+    "visual_context": { "type": "dict", "optional": true },
     "previous_resolved_prompt_ir": { "type": "dict", "optional": true },
     "impact_set": { "type": "dict", "optional": true },
     "atomic_terms": { "type": "list", "optional": true },

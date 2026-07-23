@@ -47,8 +47,12 @@ class SupervisorState(TypedDict):
     temperature: float
     tools: List[Dict[str, Any]]
     messages: Annotated[List[BaseMessage], add_messages]
+    # 本轮未经业务拆分的完整用户输入。监管者需要据此规划流程；普通下游 Agent
+    # 理论上不应直接使用，而应通过 Workflow DSL inputs 接收结构化业务数据。
     user_input: Optional[str]
     workflow_inputs: Dict[str, Any]
+    # 由平台统一注入的请求标识、会话标识和用户标识，不属于用户可配置参数。
+    request_context: Dict[str, Any]
     plan: Optional[Dict[str, Any]]
     action: Optional[SupervisorAction]
     agents: Dict[str, DelegatedAgentState]

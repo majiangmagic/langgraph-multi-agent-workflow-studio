@@ -129,9 +129,11 @@ async def test_chat_stream_includes_workflow_node_events(db_session):
             conversation_id = conversation_response.json()["id"]
 
             captured_workflow_inputs = {}
+            captured_request_context = {}
 
             def fake_official_supervisor_invoke(state, config=None):
                 captured_workflow_inputs.update(state.get("workflow_inputs") or {})
+                captured_request_context.update(state.get("request_context") or {})
                 return {
                     **state,
                     "messages": state["messages"]
@@ -151,6 +153,7 @@ async def test_chat_stream_includes_workflow_node_events(db_session):
                         "workflow_inputs": {
                             "prompt_strategy": "faithful",
                             "target_model": "nai_v4",
+                            "future_control": "custom-value",
                         },
                     },
                 )
@@ -159,6 +162,12 @@ async def test_chat_stream_includes_workflow_node_events(db_session):
             assert captured_workflow_inputs == {
                 "prompt_strategy": "faithful",
                 "target_model": "nai_v4",
+                "future_control": "custom-value",
+            }
+            assert captured_request_context == {
+                "request_id": str(uuid.UUID(captured_request_context["request_id"])),
+                "conversation_id": conversation_id,
+                "user_id": "stream-user",
             }
             events = []
             for block in response.text.strip().split("\n\n"):

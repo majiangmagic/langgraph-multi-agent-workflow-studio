@@ -25,6 +25,7 @@ RUNTIME_STATE_FIELDS = {
     "messages",
     "user_input",
     "workflow_inputs",
+    "request_context",
     "plan",
     "action",
     "agents",

@@ -317,30 +317,39 @@ def normalize_ui(raw_ui: Any) -> Dict[str, Any]:
             raise ValueError("each workflow UI control must be a map")
         control = dict(raw_control)
         key = snake_case(str(control.get("key") or ""))
+        if not key:
+            raise ValueError("workflow UI control key cannot be empty")
         if key in seen_keys:
             raise ValueError(f"duplicate workflow UI control key '{key}'")
         control_type = str(control.get("type") or "select").strip().lower()
-        if control_type not in {"select", "segmented"}:
-            raise ValueError(
-                f"workflow UI control '{key}' has unsupported type '{control_type}'"
-            )
-        raw_options = control.get("options")
-        if not isinstance(raw_options, list) or not raw_options:
-            raise ValueError(f"workflow UI control '{key}' requires options")
+        raw_options = control.get("options", [])
+        if not isinstance(raw_options, list):
+            raise ValueError(f"workflow UI control '{key}' options must be a list")
         options = []
         option_values = set()
         for raw_option in raw_options:
-            if not isinstance(raw_option, dict):
-                raise ValueError(f"workflow UI control '{key}' options must be maps")
-            value = str(raw_option.get("value") or "").strip()
+            option = dict(raw_option) if isinstance(raw_option, dict) else {
+                "value": raw_option,
+                "label": str(raw_option),
+            }
+            value = str(option.get("value") or "").strip()
             if not value or value in option_values:
                 raise ValueError(
                     f"workflow UI control '{key}' has an empty or duplicate option"
                 )
             option_values.add(value)
-            options.append({**raw_option, "value": value})
-        default = str(control.get("default") or options[0]["value"])
-        if default not in option_values:
+            options.append({**option, "value": value})
+        if control_type in {"select", "segmented"} and not options:
+            raise ValueError(
+                f"workflow UI control '{key}' of type '{control_type}' requires options"
+            )
+        raw_default = control.get("default")
+        default = str(
+            raw_default
+            if raw_default is not None
+            else options[0]["value"] if options else ""
+        )
+        if options and default not in option_values:
             raise ValueError(
                 f"workflow UI control '{key}' default must match an option"
             )
@@ -839,6 +848,7 @@ def build_initial_state(
     messages: Optional[List[BaseMessage]] = None,
     user_input: Optional[str] = None,
     workflow_inputs: Optional[Dict[str, Any]] = None,
+    request_context: Optional[Dict[str, Any]] = None,
 ) -> WorkflowState:
     """Build initial state for this workflow definition."""
 
@@ -852,6 +862,7 @@ def build_initial_state(
         messages=messages,
         user_input=user_input,
         workflow_inputs=workflow_inputs,
+        request_context=request_context,
     )
 '''
 

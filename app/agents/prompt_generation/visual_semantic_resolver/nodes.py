@@ -28,7 +28,7 @@ def prepare_context_node(
     # 这里可以读取 state["system_prompt"], state["model"], state["temperature"]。
     return {
         "prepared_context": {
-            "scene_document": dict(state.get("scene_document") or {}),
+            "visual_context": dict(state.get("visual_context") or {}),
             "previous_resolved_prompt_ir": dict(
                 state.get("previous_resolved_prompt_ir") or {}
             ),
@@ -51,7 +51,7 @@ def prepare_semantics_node(
     """Prepare the semantic document and the paths affected by this edit."""
 
     context = dict(state.get("prepared_context") or {})
-    document = dict(context.get("scene_document") or {})
+    document = dict(context.get("visual_context") or {})
     impact = context.get("impact_set") or {}
     workflow_inputs = context.get("workflow_inputs") or {}
     context.update(
@@ -229,7 +229,7 @@ async def resolve_visual_semantics_node(
     from app.services.ai_provider import AIProvider, ai_provider
 
     state = {**state, **dict(state.get("prepared_context") or {})}
-    document = state.get("scene_document") or {}
+    document = state.get("visual_context") or {}
     semantic_document = state.get("semantic_document") or {**document, "summary": ""}
     previous_ir = state.get("previous_resolved_prompt_ir") or {}
     impact = state.get("impact_set") or {}
@@ -304,7 +304,7 @@ suitable for image prompting."""
                 HumanMessage(
                     content=json.dumps(
                         {
-                            "scene_document": semantic_document,
+                            "visual_context": semantic_document,
                             "constraint_overlay": (
                                 previous_ir.get("constraint_overlay") or {}
                             ),
@@ -437,7 +437,7 @@ valid yourself. Preserve all source semantics. Return only {{"decisions": [...]}
                     SystemMessage(content=adjudication_prompt),
                     HumanMessage(
                         content=json.dumps(
-                            {"scene_document": document, "issues": uncertain_facts},
+                            {"visual_context": document, "issues": uncertain_facts},
                             ensure_ascii=False,
                         )
                     ),

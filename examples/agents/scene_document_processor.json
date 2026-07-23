@@ -14,6 +14,8 @@
     "previous_resolved_prompt_ir": { "type": "dict", "optional": true },
     "patch_proposal": { "type": "dict", "optional": true },
     "impact_set": { "type": "dict", "optional": true },
+    "identity_context": { "type": "dict", "optional": true },
+    "visual_context": { "type": "dict", "optional": true },
     "patch_error": { "type": "string", "optional": true }
     ,"clarification_request": { "type": "string", "optional": true }
     ,"clarification_options": { "type": "list", "optional": true }
@@ -25,12 +27,14 @@
     "prepare_context": { "handler": "prepare_context_node" },
     "validate_patch": { "handler": "validate_patch_node" },
     "apply_patch": { "handler": "apply_patch_node" },
-    "validate_document": { "handler": "validate_document_node" }
+    "validate_document": { "handler": "validate_document_node" },
+    "build_agent_contexts": { "handler": "build_agent_contexts_node" }
   },
   "edges": [
     { "from": "prepare_context", "to": "validate_patch" },
     { "from": "validate_patch", "to": "apply_patch" },
     { "from": "apply_patch", "to": "validate_document" },
-    { "from": "validate_document", "to": "END" }
+    { "from": "validate_document", "to": "build_agent_contexts" },
+    { "from": "build_agent_contexts", "to": "END" }
   ]
 }

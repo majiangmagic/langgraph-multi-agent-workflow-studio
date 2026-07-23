@@ -28,7 +28,10 @@ from app.agents.prompt_generation.prompt_consistency_validator.nodes import (
     validate_prompt_node,
 )
 from app.agents.prompt_generation.prompt_target_renderer.nodes import render_prompt_node
-from app.agents.prompt_generation.scene_document_processor.nodes import apply_patch_node
+from app.agents.prompt_generation.scene_document_processor.nodes import (
+    apply_patch_node,
+    build_agent_contexts_node,
+)
 from app.agents.prompt_generation.scene_document_editor.nodes import (
     _append_required_facts,
     _fallback_patch,
@@ -337,6 +340,21 @@ def test_identity_only_change_does_not_invalidate_visual_resolution():
     assert impact["identity_changed"] is True
     assert impact["visual_changed"] is False
     assert "Hatsune Miku" in impact["removed_identity_terms"]
+
+
+def test_processor_splits_identity_and_visual_agent_contexts():
+    document = sample_document()
+
+    result = build_agent_contexts_node({"scene_document": document})
+
+    identity_participant = result["identity_context"]["participants"]["character_1"]
+    visual_participant = result["visual_context"]["participants"]["character_1"]
+    assert identity_participant["identity"]["input_name"] == "Hatsune Miku"
+    assert "actions" not in identity_participant
+    assert "identity" not in visual_participant
+    assert visual_participant["actions"] == ["walking"]
+    assert result["visual_context"]["environment"]["location"] == "street"
+    assert "environment" not in result["identity_context"]
 
 
 def test_adding_participant_does_not_mark_preserved_resolved_identities_removed():
@@ -685,7 +703,7 @@ async def test_visual_resolver_keeps_residual_phrase_when_tag_covers_only_part(m
     )
     result = await resolve_visual_semantics_node(
         {
-            "scene_document": normalize_scene_document(
+            "visual_context": normalize_scene_document(
                 {"composition": {"camera": ["wide shot, full body visible"]}},
                 version=2,
             ),
@@ -778,7 +796,7 @@ async def test_visual_adjudicator_retries_typo_and_keeps_pseudo_tag_as_phrase(mo
     )
     result = await resolve_visual_semantics_node(
         {
-            "scene_document": normalize_scene_document(
+            "visual_context": normalize_scene_document(
                 {
                     "composition": {"camera": ["entire suspension setup"]},
                     "requirements": {"required": ["tears streaming down her face"]},
@@ -867,7 +885,7 @@ async def test_identity_adjudicator_retries_unverified_character_tag(monkeypatch
     )
     result = await resolve_identities_node(
         {
-            "scene_document": sample_document(),
+            "identity_context": sample_document(),
             "impact_set": {"identity_changed": True},
             "workflow_inputs": {},
             "messages": [],
@@ -1165,7 +1183,7 @@ def test_enrichment_overlay_rejection_filters_inferred_prompt_term():
     document = sample_document(version=2)
     first = compile_prompt_node(
         {
-            "scene_document": document,
+            "identity_context": document,
             "previous_resolved_prompt_ir": {},
             "impact_set": {},
             "identity_terms": [],
@@ -1186,7 +1204,7 @@ def test_enrichment_overlay_rejection_filters_inferred_prompt_term():
 
     second = compile_prompt_node(
         {
-            "scene_document": document,
+            "identity_context": document,
             "previous_resolved_prompt_ir": first,
             "impact_set": {"rejected_enrichment_ids": [enrichment_id]},
         }
@@ -1490,7 +1508,7 @@ async def test_identity_resolver_ignores_animals_and_roles(monkeypatch):
     )
     result = await resolve_identities_node(
         {
-            "scene_document": document,
+            "identity_context": document,
             "impact_set": {"identity_changed": True},
             "messages": [],
         }
@@ -1561,7 +1579,7 @@ async def test_identity_resolver_only_recomputes_changed_participants(monkeypatc
     )
     result = await resolve_identities_node(
         {
-            "scene_document": document,
+            "identity_context": document,
             "previous_resolved_prompt_ir": {
                 "identity_terms": [
                     {
@@ -1668,7 +1686,7 @@ async def test_visual_resolver_normalizes_cjk_phrases_before_prompt_ir(monkeypat
     )
     result = await resolve_visual_semantics_node(
         {
-            "scene_document": normalize_scene_document(
+            "visual_context": normalize_scene_document(
                 {"composition": {"camera": ["手机摄像画面，带菜单栏"]}},
                 version=1,
             ),
@@ -1715,7 +1733,7 @@ async def test_visual_resolver_preserves_unaffected_terms_during_local_edit(monk
     )
     result = await resolve_visual_semantics_node(
         {
-            "scene_document": normalize_scene_document(
+            "visual_context": normalize_scene_document(
                 {
                     "environment": {"location": "street"},
                     "composition": {"lighting": ["soft rim lighting"]},

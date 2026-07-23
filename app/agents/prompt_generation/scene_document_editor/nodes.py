@@ -33,6 +33,7 @@ def prepare_context_node(
             "previous_resolved_prompt_ir": previous_ir,
             "user_input": str(state.get("user_input") or "").strip(),
             "workflow_inputs": dict(state.get("workflow_inputs") or {}),
+            "request_context": dict(state.get("request_context") or {}),
         }
     }
 # </agent-node>
@@ -50,12 +51,12 @@ def prepare_request_node(
     """Normalize the user request and attach its request identifier."""
 
     context = dict(state.get("prepared_context") or {})
-    workflow_inputs = dict(context.get("workflow_inputs") or {})
+    request_context = dict(context.get("request_context") or {})
     context.update(
         {
             "user_input": str(context.get("user_input") or "").strip(),
-            "workflow_inputs": workflow_inputs,
-            "request_id": str(workflow_inputs.get("_request_id") or ""),
+            "request_context": request_context,
+            "request_id": str(request_context.get("request_id") or ""),
         }
     )
     return {"prepared_context": context}
@@ -358,7 +359,7 @@ async def propose_patch_node(
     state = {**state, **dict(state.get("prepared_context") or {})}
     document, previous_ir = _load_previous_memory(state)
     user_input = str(state.get("user_input") or "").strip()
-    request_id = str((state.get("workflow_inputs") or {}).get("_request_id") or "")
+    request_id = str((state.get("request_context") or {}).get("request_id") or "")
     agent_prompt = state.get("system_prompt") or "Edit the SceneDocument."
     system_prompt = f"""{ADULT_CONTENT_PROCESSING_PROMPT}
 

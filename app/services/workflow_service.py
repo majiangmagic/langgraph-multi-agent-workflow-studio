@@ -76,6 +76,7 @@ class WorkflowService:
         user_input: str,
         messages: Optional[List[BaseMessage]] = None,
         workflow_inputs: Optional[Dict[str, Any]] = None,
+        request_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Build state exclusively from local Agent manifests."""
 
@@ -93,6 +94,7 @@ class WorkflowService:
             messages=messages,
             user_input=user_input,
             workflow_inputs=workflow_inputs,
+            request_context=request_context,
         )
 
     @staticmethod
@@ -103,6 +105,7 @@ class WorkflowService:
         user_input: str,
         messages: Optional[List[BaseMessage]] = None,
         workflow_inputs: Optional[Dict[str, Any]] = None,
+        request_context: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Any, Dict[str, Any]]:
         workflow = WorkflowService.create_workflow(crew)
         state = WorkflowService.build_initial_state(
@@ -112,5 +115,6 @@ class WorkflowService:
             user_input=user_input,
             messages=messages,
             workflow_inputs=workflow_inputs,
+            request_context=request_context,
         )
         return workflow, state

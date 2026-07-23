@@ -138,8 +138,10 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
 .header-tools { display: flex; min-width: 0; align-items: flex-end; justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
 .workflow-controls { display: flex; min-width: 0; align-items: flex-end; gap: 8px; }
 .workflow-control { display: grid; min-width: 168px; gap: 5px; color: #6f7b75; font-size: 10px; }
-.workflow-control select { width: 100%; height: 36px; border: 1px solid #ccd5d1; border-radius: 6px; outline: none; background: #fff; color: #1e2925; padding: 0 9px; }
-.workflow-control select:focus { border-color: #4db681; box-shadow: 0 0 0 3px rgba(77, 182, 129, .12); }
+.workflow-control select, .workflow-control input:not([type="checkbox"]), .workflow-control textarea { width: 100%; min-height: 36px; border: 1px solid #ccd5d1; border-radius: 6px; outline: none; background: #fff; color: #1e2925; padding: 0 9px; }
+.workflow-control textarea { min-height: 64px; padding-block: 8px; resize: vertical; }
+.workflow-control input[type="checkbox"] { width: 36px; height: 20px; margin: 8px 0; accent-color: #27845d; }
+.workflow-control select:focus, .workflow-control input:focus, .workflow-control textarea:focus { border-color: #4db681; box-shadow: 0 0 0 3px rgba(77, 182, 129, .12); }
 .segmented-control { display: grid; height: 36px; grid-auto-columns: minmax(78px, 1fr); grid-auto-flow: column; overflow: hidden; border: 1px solid #ccd5d1; border-radius: 6px; background: #fff; }
 .segmented-control button { border: 0; border-left: 1px solid #dce2df; background: #fff; color: #64716b; padding: 0 10px; white-space: nowrap; font-size: 11px; }
 .segmented-control button:first-child { border-left: 0; }
@@ -845,6 +847,8 @@ html[data-theme="dark"] .workspace-pickers label,
 html[data-theme="dark"] .workflow-control { color: #8f9c95; }
 html[data-theme="dark"] .workspace-pickers select,
 html[data-theme="dark"] .workflow-control select,
+html[data-theme="dark"] .workflow-control input:not([type="checkbox"]),
+html[data-theme="dark"] .workflow-control textarea,
 html[data-theme="dark"] .segmented-control,
 html[data-theme="dark"] .segmented-control button,
 html[data-theme="dark"] .mobile-menu-button,
