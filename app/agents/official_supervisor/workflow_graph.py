@@ -68,6 +68,7 @@ def _find_agent_config(
 
 def _control_state(state: SupervisorState, worker_names: list[str]) -> Dict[str, Any]:
     worker_runs = {name: 0 for name in worker_names}
+    worker_reports: Dict[str, Dict[str, Any]] = {}
     last_worker = None
     for message in state.get("messages") or []:
         if not isinstance(message, AIMessage):
@@ -87,10 +88,23 @@ def _control_state(state: SupervisorState, worker_names: list[str]) -> Dict[str,
         has_result = any(value not in (None, "", [], {}) for value in results.values())
         if worker_name in worker_runs and has_result:
             worker_runs[worker_name] = max(worker_runs[worker_name], 1)
+        status = agent.get("status")
+        error = agent.get("error")
+        if worker_name in worker_runs and (
+            has_result or error or status not in (None, "", "idle")
+        ):
+            worker_reports[worker_name] = {
+                "status": status,
+                "error": error,
+                "results": _json_safe(results),
+            }
 
     last_agent = agents.get(last_worker or "") or {}
     return {
         "worker_runs": {name: count for name, count in worker_runs.items() if count},
+        # Directly connected workers do not create Supervisor route messages.
+        # Expose every completed report so the Supervisor can inspect stage outputs.
+        "worker_reports": worker_reports,
         "last_worker": last_worker,
         "last_report": {
             "status": last_agent.get("status"),
@@ -158,6 +172,7 @@ ready. Available workers:
 {worker_descriptions}
 
 - Inspect the latest worker result before selecting the next node.
+- Inspect worker_reports for outputs produced by directly connected stage nodes.
 - Do not run a worker more than {max_retries_per_node + 1} times per turn.
 - If required user information is missing, call request_user_input.
 - Do not fabricate business output or bypass the declared workflow order.
