@@ -1,4 +1,4 @@
-import { Bot, Code2, MessageSquare, Plus, RefreshCw, Trash2, Workflow as WorkflowIcon } from "lucide-react";
+import { Bot, Code2, MessageSquare, Plus, RefreshCw, Trash2 } from "lucide-react";
 import type { Conversation } from "../types";
 
 function formatTime(value: string) {
@@ -25,19 +25,20 @@ export function Sidebar(props: Props) {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="brand-mark"><WorkflowIcon size={19} /></div>
+        <div className="brand-mark"><strong>LG</strong><i /></div>
         <div>
-          <strong>LangGraph Studio</strong>
+          <strong>LANGGRAPH</strong>
+          <small>WORKFLOW STUDIO</small>
           <span><i className={props.busy ? "busy" : ""} />{props.busy ? "工作流运行中" : "本地服务已连接"}</span>
         </div>
       </div>
 
       <nav className="primary-navigation" aria-label="工作区导航">
-        <button className="active" type="button"><MessageSquare size={16} /><span>对话</span></button>
-        <button onClick={props.onOpenDesigner} type="button"><Code2 size={16} /><span>DSL 设计器</span></button>
+        <button className="active" type="button"><small>01</small><MessageSquare size={16} /><span>运行台</span></button>
+        <button onClick={props.onOpenDesigner} type="button"><small>02</small><Code2 size={16} /><span>DSL 设计器</span></button>
       </nav>
 
-      <button className="new-chat-button" onClick={props.onNewConversation} type="button"><Plus size={16} />新建对话</button>
+      <button className="new-chat-button" onClick={props.onNewConversation} type="button"><Plus size={16} /><span>新建任务</span><small>NEW RUN</small></button>
 
       <div className="history-heading">
         <div><Bot size={15} /><span>最近会话</span></div>

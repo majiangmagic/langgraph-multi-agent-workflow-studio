@@ -475,6 +475,7 @@ export default function App() {
           <div className="header-primary">
             <div className="header-title">
               <button className="mobile-menu-button" onClick={() => setSidebarOpen(true)} title="打开导航" type="button"><Menu size={19} /></button>
+              <div className="header-flow-mark" aria-hidden="true"><i /><i /><i /></div>
               <div>
                 <span className="eyebrow">{selectedWorkflow?.name ?? "WORKFLOW"}</span>
                 <h1>{currentConversation?.title || selectedWorkflow?.ui.title || "新建工作流任务"}</h1>
@@ -531,6 +532,7 @@ export default function App() {
           emptyDescription={selectedWorkflow?.ui.description || "选择 Crew 和 Workflow 后开始执行任务。"}
           emptyTitle={selectedWorkflow?.ui.title || "从哪里开始？"}
           hint={selectedWorkflow?.ui.input_hint || "消息将按当前工作流执行"}
+          workflow={selectedWorkflow}
           messages={messages}
           onClarificationExplain={explainClarification}
           onClarificationReply={(reply) => pendingInterrupt

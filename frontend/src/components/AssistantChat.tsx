@@ -13,9 +13,13 @@ import {
 import {
   ArrowDown,
   ArrowUp,
+  BadgeCheck,
+  Blocks,
+  Braces,
   Check,
   CircleHelp,
   Copy,
+  FileSearch,
   History,
   PencilLine,
   RotateCcw,
@@ -23,8 +27,8 @@ import {
   Trash2,
   Workflow,
 } from "lucide-react";
-import { useCallback, useEffect, type RefObject } from "react";
-import type { ClarificationRequest, Message, WorkflowResultMetadata } from "../types";
+import { Fragment, useCallback, useEffect, type RefObject } from "react";
+import type { ClarificationRequest, Message, Workflow as WorkflowDefinition, WorkflowResultMetadata } from "../types";
 import { PromptResult } from "./PromptResult";
 
 function clarificationFor(message: Message): ClarificationRequest | null {
@@ -59,6 +63,7 @@ type Props = {
   hint: string;
   emptyTitle: string;
   emptyDescription: string;
+  workflow?: WorkflowDefinition;
   composerRef?: RefObject<HTMLTextAreaElement | null>;
   onSend: (message: string) => Promise<void> | void;
   onCancel: () => void;
@@ -103,14 +108,47 @@ export function AssistantChat(props: Props) {
 }
 
 function ChatThread(props: Props) {
+  const workflowNodes = props.workflow?.nodes ?? [];
+  const previewNodes = workflowNodes.length <= 4
+    ? workflowNodes
+    : [
+        ...workflowNodes.slice(0, 3),
+        { name: "workflow-summary", agent: "", display_name: `其余 ${workflowNodes.length - 3} 个节点` },
+      ];
+  const previewIcons = [FileSearch, Blocks, Braces, BadgeCheck];
+
   return (
     <ThreadPrimitive.Root className="aui-thread">
       <ThreadPrimitive.Viewport className="aui-viewport" turnAnchor="top">
         <AuiIf condition={(state) => state.thread.isEmpty}>
           <div className="aui-empty-state">
-            <div className="aui-empty-mark"><Workflow size={24} /></div>
-            <h2>{props.emptyTitle}</h2>
-            <p>{props.emptyDescription}</p>
+            <div className="empty-blueprint" aria-hidden="true">
+              <div className="empty-blueprint-head">
+                <span>READY</span>
+                <small>FLOW / {String(workflowNodes.length).padStart(2, "0")}</small>
+              </div>
+              <div className="empty-blueprint-route">
+                {previewNodes.map((node, index) => {
+                  const Icon = previewIcons[index % previewIcons.length];
+                  return (
+                    <Fragment key={`${node.name}-${index}`}>
+                      {index > 0 && <b />}
+                      <div className={`blueprint-stop ${node.name === "workflow-summary" ? "summary" : ""}`}>
+                        <i>{String(index + 1).padStart(2, "0")}</i>
+                        <Icon size={19} />
+                        <span>{node.display_name || node.name}</span>
+                      </div>
+                    </Fragment>
+                  );
+                })}
+                {!previewNodes.length && <div className="blueprint-stop empty"><span>请选择工作流</span></div>}
+              </div>
+            </div>
+            <div className="empty-state-copy">
+              <span className="empty-kicker">WORKFLOW READY</span>
+              <h2>{props.emptyTitle}</h2>
+              <p>{props.emptyDescription}</p>
+            </div>
           </div>
         </AuiIf>
 
@@ -172,7 +210,8 @@ function UserMessage(props: Props) {
 
   return (
     <MessagePrimitive.Root className="aui-message aui-user-message">
-      <div className="aui-user-bubble"><MessagePrimitive.Parts /></div>
+      <span className="aui-lane-label">INPUT</span>
+      <div className="aui-user-bubble"><i aria-hidden="true" /><MessagePrimitive.Parts /></div>
       <ActionBarPrimitive.Root className="aui-message-actions" autohide="always">
         <ActionBarPrimitive.Copy asChild>
           <button title="复制" type="button"><Copy size={14} /></button>
@@ -205,7 +244,8 @@ function AssistantMessage(props: Props) {
 
   return (
     <MessagePrimitive.Root className="aui-message aui-assistant-message">
-      <div className="aui-assistant-heading"><Workflow size={15} /><span>工作流结果</span></div>
+      <span className="aui-lane-label">OUTPUT</span>
+      <div className="aui-assistant-heading"><Workflow size={15} /><span>工作流结果</span><i aria-hidden="true" /></div>
       <div className="aui-assistant-content">
         {(!source && status === "running") || (streaming && !source.content) ? (
           <div className="aui-thinking"><i /><i /><i /><span>工作流处理中</span></div>
