@@ -285,5 +285,6 @@ def finalize_validation_node(
         },
         "needs_repair": report.needs_repair,
         "has_blocking_errors": report.blocked,
+        "validation_route": "repair" if report.needs_repair and not report.blocked else "render",
     }
 # </agent-node>

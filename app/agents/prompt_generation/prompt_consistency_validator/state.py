@@ -30,4 +30,5 @@ class PromptConsistencyValidatorState(TypedDict):
     validation_report: Optional[Dict[str, Any]]
     needs_repair: Optional[bool]
     has_blocking_errors: Optional[bool]
+    validation_route: Optional[str]
     prepared_context: Optional[Dict[str, Any]]

@@ -482,6 +482,12 @@ def render_graph(workflow: WorkflowDsl) -> str:
                 for edge in edges
                 if edge.target != "END"
             ],
+            any(
+                edge.target == "END"
+                for (source, _), edges in route_groups.items()
+                if source == node.name
+                for edge in edges
+            ),
         )
         if node.name in supervisor_nodes
         else render_node_call(node, extension_by_node)
@@ -791,6 +797,7 @@ def render_supervisor_node_call(
     node: WorkflowNodeDsl,
     extension_by_node: Dict[str, str],
     worker_names: List[str],
+    allow_finish_workflow: bool,
 ) -> str:
     """Render a Supervisor as an ordinary Agent node with routed output."""
 
@@ -809,6 +816,7 @@ def render_supervisor_node_call(
                 agents=agents,
                 worker_names={worker_names!r},
                 max_retries_per_node={max_retries},
+                allow_finish_workflow={allow_finish_workflow!r},
             ),
             extension=create_supervisor_extension({node.name!r}),
         ),

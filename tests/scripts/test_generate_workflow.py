@@ -438,6 +438,7 @@ def test_generate_workflow_supports_supervisor_conditional_routes(
     assert "create_react_agent" not in graph_text
     assert "create_handoff_tool" not in graph_text
     assert "handoff_tools" not in graph_text
+    assert "allow_finish_workflow=True" in graph_text
     assert "workflow = StateGraph(SupervisedPipelineState)" in graph_text
     assert "workflow.add_node(" in graph_text
     assert 'workflow.add_edge("editor", "supervisor")' in graph_text
@@ -448,6 +449,48 @@ def test_generate_workflow_supports_supervisor_conditional_routes(
     assert "'renderer': 'renderer'" in graph_text
     assert "'END': END" in graph_text
     assert "workflow = create_supervisor(" not in graph_text
+
+
+def test_generate_workflow_disables_undeclared_supervisor_finish(tmp_path, monkeypatch):
+    workflows_dir = tmp_path / "workflows"
+    monkeypatch.setattr(generate_workflow, "WORKFLOWS_DIR", workflows_dir)
+    dsl_path = tmp_path / "bounded-supervisor.json"
+    dsl_path.write_text(
+        json.dumps(
+            {
+                "kind": "workflow",
+                "name": "bounded_supervisor",
+                "entrypoint": "supervisor",
+                "nodes": {
+                    "supervisor": {
+                        "agent": "official_supervisor",
+                        "extension": "supervisor",
+                    },
+                    "worker": {"agent": "worker_agent"},
+                },
+                "edges": [
+                    {
+                        "from": "supervisor",
+                        "to": "worker",
+                        "condition": {
+                            "path": "nodes.supervisor.next_node",
+                            "operator": "equals",
+                            "value": "worker",
+                        },
+                    },
+                    {"from": "worker", "to": "END"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert generate_workflow.main([str(dsl_path)]) == 0
+    graph_text = (workflows_dir / "bounded_supervisor" / "graph.py").read_text(
+        encoding="utf-8"
+    )
+    assert "allow_finish_workflow=False" in graph_text
+    assert "'END': END" not in graph_text
     assert "create_supervised_workflow(" not in graph_text
     assert "SupervisedWorkerSpec(" not in graph_text
     assert "create_supervised_worker_graph(" not in graph_text

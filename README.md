@@ -141,9 +141,12 @@ supervisor_simple workflow
   -> 身份变化：只解析变化的具名角色
   -> 视觉变化：只解析受影响的事实路径
   -> Prompt IR 编译 -> 一致性检查
-                    ├-> Renderer 与输出门禁
-                    `-> 定向修复（最多一次）-> 重新编译
+                    ├-> 通过或阻断 -> Renderer 与输出门禁 -> END
+                    `-> 可恢复问题 -> 定向修复（最多两次）-> 重新编译
 ```
+
+监管者只选择画面、身份、视觉和编译四个阶段入口。阶段内部顺序、校验分支、有限修复循环和
+最终结束均由 LangGraph 边确定性控制，监管者不能直接跳入阶段内部节点或提前结束。
 
 `SceneDocument` 是与具体模型无关的画面工程，保存稳定角色 ID、身份、动作、环境、
 复杂关系与正负约束。用户每一轮自然语言先转换成受限 `PatchProposal`，由代码事务执行；
@@ -319,6 +322,8 @@ Workflow 节点可通过 `config` 覆盖本地 Agent manifest 的 prompt/model �
 生成器会把这些关系直接编译成 `StateGraph.add_conditional_edges()` 与 `add_edge()`。Supervisor
 只把下一节点写入自己的 `nodes.supervisor.next_node`，工作流负责真正跳转；Worker 继续通过
 通用 `create_agent_node()` 读取和回写 `nodes[agent_name]`。不需要额外的 orchestration DSL。
+只有 DSL 明确声明从该 Supervisor 到 `END` 的条件边时，监管者才会获得
+`finish_workflow` 工具；否则结束权属于工作流的确定性边。
 监管者可调用 `request_user_input` 暂停执行；Web 页面会显示补充信息对话框，提交后使用同一个
 `conversation_id/thread_id` 从 checkpoint 恢复，而不是创建一轮新的工作流执行。
 

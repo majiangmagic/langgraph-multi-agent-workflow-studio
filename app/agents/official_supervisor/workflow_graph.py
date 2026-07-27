@@ -129,6 +129,7 @@ def create_workflow_supervisor_graph(
     agents: list[Dict[str, Any]],
     worker_names: list[str],
     max_retries_per_node: int = 2,
+    allow_finish_workflow: bool = True,
 ):
     """Create a Supervisor Agent that writes its choice to ``next_node``."""
 
@@ -144,9 +145,10 @@ def create_workflow_supervisor_graph(
     )
     route_targets = {
         **{f"route_to_{worker_name}": worker_name for worker_name in worker_names},
-        "finish_workflow": "END",
+        **({"finish_workflow": "END"} if allow_finish_workflow else {}),
     }
-    tools = [request_user_input, *[create_route_tool(name) for name in [*worker_names, "END"]]]
+    route_names = [*worker_names, *(["END"] if allow_finish_workflow else [])]
+    tools = [request_user_input, *[create_route_tool(name) for name in route_names]]
     model = ai_provider.get_model(
         model_name=supervisor_config.get("model") or ai_provider.SUPERVISOR_MODEL,
         temperature=supervisor_config.get("temperature", 0.2),
@@ -164,11 +166,15 @@ def create_workflow_supervisor_graph(
             if memory_lines
             else ""
         )
+        finish_policy = (
+            "Call finish_workflow only when the final output is ready."
+            if allow_finish_workflow
+            else "This node cannot finish the workflow; completion is controlled by declared graph edges."
+        )
         policy = f"""
 
 You supervise an explicit LangGraph workflow. Select the next node by calling
-exactly one route_to_* tool. Call finish_workflow only when the final output is
-ready. Available workers:
+exactly one route_to_* tool. {finish_policy} Available workers:
 {worker_descriptions}
 
 - Inspect the latest worker result before selecting the next node.

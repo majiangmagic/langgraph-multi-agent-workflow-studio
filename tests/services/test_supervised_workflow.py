@@ -188,6 +188,24 @@ def supervised_workflow(model, *, checkpointer=None):
     )
 
 
+def test_supervisor_can_disable_finish_tool(monkeypatch):
+    model = SupervisorTestModel()
+    monkeypatch.setattr(
+        "app.agents.official_supervisor.workflow_graph.ai_provider.get_model",
+        lambda **kwargs: model,
+    )
+
+    create_workflow_supervisor_graph(
+        node_name="supervisor",
+        agents=runtime_agents(),
+        worker_names=["worker"],
+        allow_finish_workflow=False,
+    )
+
+    assert "route_to_worker" in model._tool_names
+    assert "finish_workflow" not in model._tool_names
+
+
 @pytest.mark.asyncio
 async def test_official_supervisor_runs_real_worker_and_merges_state(monkeypatch):
     model = SupervisorTestModel(mode="delegate")

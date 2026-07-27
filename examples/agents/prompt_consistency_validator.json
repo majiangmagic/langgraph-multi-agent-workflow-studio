@@ -15,6 +15,7 @@
     "validation_report": { "type": "dict", "optional": true },
     "needs_repair": { "type": "boolean", "optional": true },
     "has_blocking_errors": { "type": "boolean", "optional": true },
+    "validation_route": { "type": "string", "optional": true },
     "prepared_context": { "type": "dict", "optional": true }
   },
   "entrypoint": "prepare_context",

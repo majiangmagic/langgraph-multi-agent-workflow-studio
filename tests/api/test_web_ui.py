@@ -62,18 +62,22 @@ def test_workflow_options_endpoint_lists_registered_workflows():
     ]
     assert {edge["to"] for edge in conditional_edges} == {
         "scene_document_editor",
-        "scene_document_processor",
         "identity_impact_router",
-        "character_identity_resolver",
         "visual_impact_router",
-        "visual_semantic_resolver",
         "prompt_compiler",
-        "consistency_validator",
         "semantic_repairer",
         "target_renderer",
-        "END",
     }
-    assert all(edge["from"] == "supervisor" for edge in conditional_edges)
+    assert {
+        edge["to"]
+        for edge in conditional_edges
+        if edge["from"] == "supervisor"
+    } == {
+        "scene_document_editor",
+        "identity_impact_router",
+        "visual_impact_router",
+        "prompt_compiler",
+    }
     supervisor = next(
         node for node in prompt_workflow["nodes"] if node["name"] == "supervisor"
     )
@@ -82,7 +86,12 @@ def test_workflow_options_endpoint_lists_registered_workflows():
         edge["to"]
         for edge in prompt_workflow["edges"]
         if edge["from"] == "supervisor"
-    } >= {"scene_document_editor", "target_renderer", "END"}
+    } == {
+        "scene_document_editor",
+        "identity_impact_router",
+        "visual_impact_router",
+        "prompt_compiler",
+    }
     controls = {
         control["key"]: control for control in prompt_workflow["ui"]["controls"]
     }

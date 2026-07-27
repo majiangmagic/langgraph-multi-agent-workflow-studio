@@ -25,6 +25,7 @@ from app.agents.prompt_generation.character_identity_resolver.nodes import (
 )
 from app.agents.prompt_generation.prompt_compiler.nodes import compile_prompt_node
 from app.agents.prompt_generation.prompt_consistency_validator.nodes import (
+    finalize_validation_node,
     validate_prompt_node,
 )
 from app.agents.prompt_generation.prompt_target_renderer.nodes import render_prompt_node
@@ -520,6 +521,44 @@ def test_validator_requires_every_active_constraint_to_be_compiled():
     assert constraint_path in result["validation_report"]["missing_paths"]
 
 
+def test_validator_exposes_one_deterministic_workflow_route():
+    recoverable = finalize_validation_node(
+        {
+            "validation_report": {
+                "valid": False,
+                "issues": [
+                    {
+                        "code": "missing_required_paths",
+                        "severity": "recoverable",
+                        "message": "missing",
+                    }
+                ],
+            }
+        }
+    )
+    blocked = finalize_validation_node(
+        {
+            "validation_report": {
+                "valid": False,
+                "issues": [
+                    {
+                        "code": "unbound_identity_term",
+                        "severity": "blocking",
+                        "message": "blocked",
+                    }
+                ],
+            }
+        }
+    )
+    valid = finalize_validation_node(
+        {"validation_report": {"valid": True, "issues": []}}
+    )
+
+    assert recoverable["validation_route"] == "repair"
+    assert blocked["validation_route"] == "render"
+    assert valid["validation_route"] == "render"
+
+
 def test_renderer_keeps_phrases_for_nai_v4_but_not_nai_v3():
     state = {
         "scene_document": sample_document(),
@@ -925,14 +964,9 @@ class WorkflowModel(BaseChatModel):
             runs = control.get("worker_runs") or {}
             order = [
                 "scene_document_editor",
-                "scene_document_processor",
                 "identity_impact_router",
-                "character_identity_resolver",
                 "visual_impact_router",
-                "visual_semantic_resolver",
                 "prompt_compiler",
-                "consistency_validator",
-                "target_renderer",
             ]
             target = next((name for name in order if not runs.get(name)), None)
             if target:
