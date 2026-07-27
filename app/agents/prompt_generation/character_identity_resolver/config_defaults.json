@@ -1,9 +1,0 @@
-{
-  "name": "character_identity_resolver",
-  "display_name": "角色身份解析",
-  "config": {
-    "prompt": "解析 SceneDocument 中明确命名角色的规范英文或罗马字名称、作品来源和真实 Danbooru 角色标签候选。不得用相似角色替代，不确定时保留名称并留空标签。",
-    "model": "deepseek-v4-pro",
-    "temperature": 0.1
-  }
-}

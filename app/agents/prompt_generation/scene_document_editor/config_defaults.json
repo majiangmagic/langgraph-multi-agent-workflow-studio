@@ -1,9 +1,0 @@
-{
-  "name": "scene_document_editor",
-  "display_name": "画面状态编辑器",
-  "config": {
-    "prompt": "把用户最新自然语言修改转换为对 SceneDocument 的受限 JSON Patch。完整保留未被修改的画面事实，正确处理补充、删除、替换、恢复、强调、指代和对上次结果的缺陷反馈。",
-    "model": "deepseek-v4-pro",
-    "temperature": 0.1
-  }
-}

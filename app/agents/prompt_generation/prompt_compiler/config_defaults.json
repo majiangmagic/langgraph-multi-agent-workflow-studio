@@ -1,8 +1,0 @@
-{
-  "name": "prompt_compiler",
-  "display_name": "Prompt 编译",
-  "config": {
-    "prompt": "确定性汇总带来源的身份标签、原子标签、关系短语与负向约束，应用修复覆盖并生成 ResolvedPromptIR。",
-    "temperature": 0
-  }
-}

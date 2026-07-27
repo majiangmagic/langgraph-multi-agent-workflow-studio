@@ -28,6 +28,13 @@ SSE 执行事件和 Agent/Workflow DSL 代码生成器。
 - 新 Agent/Workflow 生成并注册后自动出现在页面，不需要同步数据库
 - 已注册 Workflow 可以连同相关 Agent 导出，在没有本平台、前端和数据库时独立运行
 
+平台代码、Agent 和 Workflow 分别由三个 Git 仓库管理；主仓库通过 Submodule 将组件
+挂载在原有 `app/agents` 与 `app/workflows` 路径，因此 Python 导入和生成目录保持不变：
+
+- [Studio 主仓库](https://github.com/majiangmagic/langgraph-multi-agent-workflow-studio)
+- [Agents 仓库](https://github.com/majiangmagic/langgraph-multi-agent-studio-agents)
+- [Workflows 仓库](https://github.com/majiangmagic/langgraph-multi-agent-studio-workflows)
+
 适合用于搭建可持续扩展的多 Agent 主脑、领域工作流实验台、内部 Agent 工具，以及需要
 可视化调试、会话记忆和独立交付能力的 LangGraph 项目。
 
@@ -600,6 +607,28 @@ Swagger：`http://127.0.0.1:8765/api/docs`
 
 ## 快速开始
 
+克隆时需要同时初始化两个组件仓库：
+
+```powershell
+git clone --recurse-submodules https://github.com/majiangmagic/langgraph-multi-agent-workflow-studio.git
+```
+
+已有本地仓库可执行：
+
+```powershell
+git submodule update --init --recursive
+```
+
+Agent 与 Workflow 仓库提供同名场景分支，可在不改变目录结构的情况下成对切换：
+
+```powershell
+git -C app/agents switch scene/prompt-generation
+git -C app/workflows switch scene/prompt-generation
+```
+
+当前预置 `scene/prompt-generation` 与 `scene/supervisor-simple`。切换或更新子仓库后，
+主仓库需要提交新的 Submodule commit 指针。
+
 ### 1. 安装后端依赖
 
 需要 Python 3.10+ 和 PostgreSQL。
@@ -688,7 +717,7 @@ app/
   config.py
   bootstrap/
     workflow_discovery.py
-  agents/
+  agents/                    # Git Submodule
     catalog.py
     registry.py
     official_supervisor/
@@ -713,7 +742,7 @@ app/
       events.py
       store.py
     llm/provider.py
-  workflows/
+  workflows/                 # Git Submodule
     registry.py
     prompt_generation_workflow/
       workflow.dsl.json

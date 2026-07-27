@@ -1,0 +1,8 @@
+[submodule "app/agents"]
+	path = app/agents
+	url = https://github.com/majiangmagic/langgraph-multi-agent-studio-agents.git
+	branch = main
+[submodule "app/workflows"]
+	path = app/workflows
+	url = https://github.com/majiangmagic/langgraph-multi-agent-studio-workflows.git
+	branch = main

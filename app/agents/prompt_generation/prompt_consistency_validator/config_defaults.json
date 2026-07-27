@@ -1,8 +1,0 @@
-{
-  "name": "prompt_consistency_validator",
-  "display_name": "一致性检查",
-  "config": {
-    "prompt": "确定性检查必需路径覆盖、旧身份残留、正负冲突和悬空来源。",
-    "temperature": 0
-  }
-}

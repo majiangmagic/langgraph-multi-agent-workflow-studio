@@ -1,8 +1,0 @@
-{
-  "name": "scene_document_processor",
-  "display_name": "画面工程更新",
-  "config": {
-    "prompt": "确定性校验并执行 SceneDocument Patch，计算本轮影响范围。",
-    "temperature": 0
-  }
-}

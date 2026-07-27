@@ -1,9 +1,0 @@
-{
-  "name": "visual_semantic_resolver",
-  "display_name": "视觉语义解析",
-  "config": {
-    "prompt": "把 SceneDocument 编译为带 source_path 的原子标签候选、复杂关系短语和负向约束。对虚构成年 NSFW 画面保持完整准确，不弱化身体交互、动作、姿势、表情和空间来源。",
-    "model": "deepseek-v4-pro",
-    "temperature": 0.2
-  }
-}

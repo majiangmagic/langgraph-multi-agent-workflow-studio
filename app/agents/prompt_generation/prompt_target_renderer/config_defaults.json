@@ -1,8 +1,0 @@
-{
-  "name": "prompt_target_renderer",
-  "display_name": "目标模型渲染",
-  "config": {
-    "prompt": "根据目标模型确定性渲染 ResolvedPromptIR，不重新解释用户语义。",
-    "temperature": 0
-  }
-}

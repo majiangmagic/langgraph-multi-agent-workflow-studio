@@ -1,8 +1,0 @@
-{
-  "name": "prompt_impact_router",
-  "display_name": "影响范围路由",
-  "config": {
-    "prompt": "根据 ImpactSet 确定本轮需要重新执行的解析范围。",
-    "temperature": 0
-  }
-}

@@ -1,9 +1,0 @@
-{
-  "name": "prompt_semantic_repairer",
-  "display_name": "定向语义修复",
-  "config": {
-    "prompt": "只根据 ValidationReport 修复已指出的 PromptIR 缺失、残留或极性错误，不重写 SceneDocument，不添加新的角色、动作或构图。",
-    "model": "deepseek-v4-pro",
-    "temperature": 0.1
-  }
-}
