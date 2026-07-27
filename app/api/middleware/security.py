@@ -7,7 +7,7 @@ from jose import jwt, JWTError
 from typing import Optional, Callable, Dict, Any, Awaitable
 import logging
 
-from app.core.config import settings
+from app.config import settings
 from app.api.exceptions import UnauthorizedError, ForbiddenError
 
 # Configure logging

@@ -13,8 +13,8 @@ authors = [
     {name = "sesame_paste", email = "you@example.com"}
 ]
 
-[tool.setuptools]
-packages = ["app"]
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

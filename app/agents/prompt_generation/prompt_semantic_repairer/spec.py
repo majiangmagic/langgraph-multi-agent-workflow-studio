@@ -2,7 +2,7 @@
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from app.agents.prompt_generation.prompt_semantic_repairer.nodes import prepare_context_node, collect_repair_scope_node, repair_semantics_node, validate_repair_node
 from app.agents.prompt_generation.prompt_semantic_repairer.state import PromptSemanticRepairerState
 

@@ -296,7 +296,7 @@ export function DslDesigner({
   async function prepareGeneration() {
     try {
       await api.validateDsl(kind, data);
-      const base = kind === "agent" ? `app/agents/${String(data.package || documentName)}` : `app/core/langgraph/workflows/${documentName}`;
+      const base = kind === "agent" ? `app/agents/${String(data.package || documentName)}` : `app/workflows/${documentName}`;
       setGeneration({ name: documentName, files: [base] });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));

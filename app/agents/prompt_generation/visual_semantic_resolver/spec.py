@@ -2,7 +2,7 @@
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from app.agents.prompt_generation.visual_semantic_resolver.nodes import prepare_context_node, prepare_semantics_node, resolve_visual_semantics_node, validate_visual_result_node
 from app.agents.prompt_generation.visual_semantic_resolver.state import VisualSemanticResolverState
 

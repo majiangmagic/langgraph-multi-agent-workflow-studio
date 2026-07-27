@@ -57,6 +57,9 @@ def test_generate_workflow_writes_to_patched_workflows_dir(tmp_path, monkeypatch
     workflow_dir = workflows_dir / "research_pipeline"
 
     assert workflow_dir.exists()
+    assert json.loads(
+        (workflow_dir / "workflow.dsl.json").read_text(encoding="utf-8")
+    )["name"] == "research_pipeline"
     graph_text = (workflow_dir / "graph.py").read_text(encoding="utf-8")
     state_text = (workflow_dir / "state.py").read_text(encoding="utf-8")
 

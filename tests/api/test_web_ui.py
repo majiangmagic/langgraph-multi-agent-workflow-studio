@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 import pytest
 
-from app.db.base import Base, get_db
+from app.infrastructure.database.session import Base, get_db
 from app.main import app
 
 

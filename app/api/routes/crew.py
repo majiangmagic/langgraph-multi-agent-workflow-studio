@@ -6,9 +6,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.base import get_db
-from app.services.crew_service import CrewService
-from app.schemas.crew import (
+from app.infrastructure.database.session import get_db
+from app.application.crew_service import CrewService
+from app.api.schemas.crew import (
     CrewCreate, 
     CrewUpdate, 
     CrewResponse, 

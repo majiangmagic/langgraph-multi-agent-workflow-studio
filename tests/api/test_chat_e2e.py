@@ -9,9 +9,9 @@ from langchain_core.messages import AIMessage
 from sqlalchemy import select
 from unittest.mock import patch
 
-from app.db.base import get_db
+from app.infrastructure.database.session import get_db
 from app.main import app
-from app.models.conversation import Message, MessageRole
+from app.infrastructure.database.models.conversation import Message, MessageRole
 
 
 @pytest.mark.asyncio

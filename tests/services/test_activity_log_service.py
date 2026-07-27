@@ -3,9 +3,9 @@
 import pytest
 from sqlalchemy import select
 
-from app.core.config import settings
-from app.models.activity_log import ActivityLog, ActivityType
-from app.services.conversation_service import ActivityLogService
+from app.config import settings
+from app.infrastructure.database.models.activity_log import ActivityLog, ActivityType
+from app.application.conversation_service import ActivityLogService
 
 
 @pytest.mark.asyncio

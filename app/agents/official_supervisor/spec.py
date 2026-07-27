@@ -2,7 +2,7 @@
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from app.agents.official_supervisor.nodes import OfficialSupervisorNode
 from app.agents.official_supervisor.official_runtime import OfficialSupervisorRuntime
 from app.agents.official_supervisor.state import SupervisorState

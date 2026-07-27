@@ -13,7 +13,7 @@ assert SPEC.loader is not None
 sys.modules["generate_agent"] = generate_agent
 SPEC.loader.exec_module(generate_agent)
 
-EXAMPLE_AGENTS = MODULE_PATH.parents[1] / "examples" / "agents"
+PROMPT_AGENTS = MODULE_PATH.parents[1] / "app" / "agents" / "prompt_generation"
 
 
 def test_generate_agent_preserves_existing_node_blocks(tmp_path, monkeypatch):
@@ -54,6 +54,10 @@ def test_generate_agent_preserves_existing_node_blocks(tmp_path, monkeypatch):
 
     assert generate_agent.main([str(dsl_path)]) == 0
     nodes_path = agents_dir / "research_agent" / "nodes.py"
+    saved_definition = agents_dir / "research_agent" / "agent.dsl.json"
+    assert json.loads(saved_definition.read_text(encoding="utf-8"))["name"] == (
+        "research_agent"
+    )
     nodes_text = nodes_path.read_text(encoding="utf-8")
     nodes_path.write_text(
         nodes_text.replace(
@@ -210,7 +214,9 @@ def test_prompt_agents_use_real_internal_stages():
     }
     for agent_name, stages in staged_agents.items():
         data = json.loads(
-            (EXAMPLE_AGENTS / f"{agent_name}.json").read_text(encoding="utf-8")
+            (PROMPT_AGENTS / agent_name / "agent.dsl.json").read_text(
+                encoding="utf-8"
+            )
         )
         assert data["entrypoint"] == "prepare_context"
         assert list(data["nodes"]) == stages
@@ -223,6 +229,8 @@ def test_prompt_agents_use_real_internal_stages():
         ]
 
     impact_router = json.loads(
-        (EXAMPLE_AGENTS / "prompt_impact_router.json").read_text(encoding="utf-8")
+        (PROMPT_AGENTS / "prompt_impact_router" / "agent.dsl.json").read_text(
+            encoding="utf-8"
+        )
     )
     assert set(impact_router["nodes"]) == {"route_impact"}

@@ -207,6 +207,7 @@ python scripts/generate_agent.py examples/agents/research_agent.json
 
 ```text
 app/agents/research/research_agent/
+  agent.dsl.json
   __init__.py
   config_defaults.json
   graph.py
@@ -263,8 +264,9 @@ Workflow DSL 只描述 Agent 实例、连接、适配方式和页面 metadata：
 python scripts/generate_workflow.py examples/workflows/research_pipeline.json
 ```
 
-输出位于 `app/core/langgraph/workflows/<workflow_name>/`。生成的 `graph.py` 会注册
-Workflow，`state.py` 会根据节点和本地 Agent manifest 机械构造初始状态。
+输出位于 `app/workflows/<workflow_name>/`，原始定义保存为同目录的
+`workflow.dsl.json`。生成的 `graph.py` 会注册 Workflow，`state.py` 会根据节点
+和本地 Agent manifest 机械构造初始状态。
 
 常用节点 extension：
 
@@ -421,8 +423,8 @@ Copy-Item .env.example .env
 python -m standalone_workflow
 ```
 
-如果工作流业务代码直接依赖 `app.api`、`app.db`、`app.models` 或 `app.schemas`，导出会
-明确失败并报告耦合模块，防止生成无法真正脱离平台运行的包。下载接口为
+如果工作流业务代码直接依赖 `app.api`、`app.application` 或
+`app.infrastructure.database`，导出会明确失败并报告耦合模块，防止生成无法真正脱离平台运行的包。下载接口为
 `GET /api/workflows/{workflow_name}/export`，与 DSL 写入接口一样只允许本机调用。
 
 ## State 与记忆
@@ -683,24 +685,42 @@ Vite 地址为 `http://127.0.0.1:5173`，并将 `/api` 代理到后端 `8765` �
 
 ```text
 app/
+  config.py
+  bootstrap/
+    workflow_discovery.py
   agents/
     catalog.py
-    declarative.py
+    registry.py
     official_supervisor/
     prompt_generation/
-  api/routes/
-  core/langgraph/
-    checkpoint.py
-    events.py
-    store.py
-    workflows/
+      */agent.dsl.json
+  api/
+    routes/
+    schemas/
+  application/
+    conversation_service.py
+    crew_service.py
+    dsl_service.py
+    workflow_service.py
+    workflow_export_service.py
+  domains/
+    prompt_generation/
+  runtime/
+    langgraph/
+      agent_definition.py
       adapters/
-      prompt_generation_workflow/
-      supervisor_simple/
-  db/
-  models/
-  schemas/
-  services/
+      checkpoint.py
+      events.py
+      store.py
+    llm/provider.py
+  workflows/
+    registry.py
+    prompt_generation_workflow/
+      workflow.dsl.json
+    supervisor_simple/
+  infrastructure/database/
+    session.py
+    models/
   web/dist/
 
 database/
@@ -708,8 +728,8 @@ database/
   schema.sql
 
 examples/
-  agents/
-  workflows/
+  agents/       # 尚未生成的示例 DSL
+  workflows/    # 尚未生成的示例 DSL
 
 frontend/
   src/

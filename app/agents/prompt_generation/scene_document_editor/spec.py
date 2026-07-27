@@ -2,7 +2,7 @@
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from app.agents.prompt_generation.scene_document_editor.nodes import prepare_context_node, prepare_request_node, propose_patch_node, validate_patch_node
 from app.agents.prompt_generation.scene_document_editor.state import SceneDocumentEditorState
 

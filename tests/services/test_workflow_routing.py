@@ -1,9 +1,9 @@
 """Tests for declarative workflow condition routing."""
 
-from app.core.langgraph.workflows.adapters.routing import (
+from app.runtime.langgraph.adapters.routing import (
     create_state_condition_router,
 )
-from app.core.langgraph.events import WorkflowEventSink, reset_event_sink, set_event_sink
+from app.runtime.langgraph.events import WorkflowEventSink, reset_event_sink, set_event_sink
 
 
 def test_condition_router_obeys_state_counter_limit():

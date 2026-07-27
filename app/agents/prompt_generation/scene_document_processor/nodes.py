@@ -26,7 +26,7 @@ def prepare_context_node(
     # prompt/model/temperature 来自本地 Agent manifest 和 Workflow 节点配置，
     # 由运行时经 Workflow state 注入。
     # 这里可以读取 state["system_prompt"], state["model"], state["temperature"]。
-    from app.agents.prompt_generation.domain import (
+    from app.domains.prompt_generation.domain import (
         empty_scene_document,
         normalize_scene_document,
     )
@@ -58,7 +58,7 @@ def validate_patch_node(
 ) -> Dict[str, Any]:
     """Pre-validate the patch while preserving the processor's fallback path."""
 
-    from app.agents.prompt_generation.domain import validate_patch_proposal
+    from app.domains.prompt_generation.domain import validate_patch_proposal
 
     context = dict(state.get("prepared_context") or {})
     previous = context.get("previous_scene_document") or {}
@@ -91,7 +91,7 @@ def apply_patch_node(
 
     from langchain_core.messages import AIMessage
 
-    from app.agents.prompt_generation.domain import (
+    from app.domains.prompt_generation.domain import (
         apply_patch_proposal,
         compute_impact_set,
         empty_scene_document,
@@ -251,7 +251,7 @@ def validate_document_node(
 ) -> Dict[str, Any]:
     """Normalize the committed document and verify processor output types."""
 
-    from app.agents.prompt_generation.domain import normalize_scene_document
+    from app.domains.prompt_generation.domain import normalize_scene_document
 
     if not isinstance(state.get("impact_set"), dict):
         raise ValueError("scene document processor did not produce an impact_set")

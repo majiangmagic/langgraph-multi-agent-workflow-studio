@@ -2,7 +2,7 @@
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from app.agents.prompt_generation.prompt_target_renderer.nodes import prepare_context_node, validate_render_input_node, render_prompt_node, validate_render_result_node
 from app.agents.prompt_generation.prompt_target_renderer.state import PromptTargetRendererState
 

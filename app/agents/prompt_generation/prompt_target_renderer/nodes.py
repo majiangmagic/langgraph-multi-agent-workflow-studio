@@ -26,7 +26,7 @@ def prepare_context_node(
     # prompt/model/temperature 来自本地 Agent manifest 和 Workflow 节点配置，
     # 由运行时经 Workflow state 注入。
     # 这里可以读取 state["system_prompt"], state["model"], state["temperature"]。
-    from app.agents.prompt_generation.rendering import resolve_model
+    from app.domains.prompt_generation.rendering import resolve_model
 
     workflow_inputs = dict(state.get("workflow_inputs") or {})
     return {
@@ -56,7 +56,7 @@ def validate_render_input_node(
 ) -> Dict[str, Any]:
     """Validate renderer inputs without blocking clarification responses."""
 
-    from app.agents.prompt_generation.rendering import PROFILES
+    from app.domains.prompt_generation.rendering import PROFILES
 
     context = dict(state.get("prepared_context") or {})
     if context.get("target_model") not in PROFILES:
@@ -79,8 +79,8 @@ def render_prompt_node(
 
     from langchain_core.messages import AIMessage
 
-    from app.agents.prompt_generation.models import PromptResult
-    from app.agents.prompt_generation.rendering import (
+    from app.domains.prompt_generation.models import PromptResult
+    from app.domains.prompt_generation.rendering import (
         PROFILES,
         RENDERERS,
         resolve_model,
@@ -175,7 +175,7 @@ def validate_render_result_node(
 ) -> Dict[str, Any]:
     """Validate the renderer's final public response."""
 
-    from app.agents.prompt_generation.models import PromptResult
+    from app.domains.prompt_generation.models import PromptResult
 
     raw_output = dict(state.get("final_output") or {})
     core_output = {

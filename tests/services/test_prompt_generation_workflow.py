@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 from app.agents.catalog import resolve_workflow_agent_configs
-from app.agents.prompt_generation.domain import (
+from app.domains.prompt_generation.domain import (
     apply_patch_proposal,
     collect_required_paths,
     compute_impact_set,
@@ -19,7 +19,7 @@ from app.agents.prompt_generation.domain import (
     normalize_scene_document,
     validate_patch_proposal,
 )
-from app.agents.prompt_generation.danbooru import select_fuzzy_tag
+from app.domains.prompt_generation.danbooru import select_fuzzy_tag
 from app.agents.prompt_generation.character_identity_resolver.nodes import (
     resolve_identities_node,
 )
@@ -51,11 +51,11 @@ from app.api.routes.conversation import (
     extract_workflow_outcome,
     extract_workflow_result,
 )
-from app.core.langgraph.workflows.prompt_generation_workflow.graph import (
+from app.workflows.prompt_generation_workflow.graph import (
     WORKFLOW_METADATA,
     create_prompt_generation_workflow_graph,
 )
-from app.core.langgraph.workflows.prompt_generation_workflow.state import build_initial_state
+from app.workflows.prompt_generation_workflow.state import build_initial_state
 
 
 def sample_document(name: str = "Hatsune Miku", version: int = 1):
@@ -733,11 +733,11 @@ async def test_visual_resolver_keeps_residual_phrase_when_tag_covers_only_part(m
         ]
 
     monkeypatch.setattr(
-        "app.services.ai_provider.ai_provider.get_model",
+        "app.runtime.llm.provider.ai_provider.get_model",
         lambda **kwargs: CameraModel(),
     )
     monkeypatch.setattr(
-        "app.agents.prompt_generation.danbooru.resolve_tag_candidates",
+        "app.domains.prompt_generation.danbooru.resolve_tag_candidates",
         resolve_candidates,
     )
     result = await resolve_visual_semantics_node(
@@ -826,11 +826,11 @@ async def test_visual_adjudicator_retries_typo_and_keeps_pseudo_tag_as_phrase(mo
         ]
 
     monkeypatch.setattr(
-        "app.services.ai_provider.ai_provider.get_model",
+        "app.runtime.llm.provider.ai_provider.get_model",
         lambda **kwargs: model,
     )
     monkeypatch.setattr(
-        "app.agents.prompt_generation.danbooru.resolve_tag_candidates",
+        "app.domains.prompt_generation.danbooru.resolve_tag_candidates",
         resolve_candidates,
     )
     result = await resolve_visual_semantics_node(
@@ -915,11 +915,11 @@ async def test_identity_adjudicator_retries_unverified_character_tag(monkeypatch
         ]
 
     monkeypatch.setattr(
-        "app.services.ai_provider.ai_provider.get_model",
+        "app.runtime.llm.provider.ai_provider.get_model",
         lambda **kwargs: model,
     )
     monkeypatch.setattr(
-        "app.agents.prompt_generation.danbooru.resolve_tag_candidates",
+        "app.domains.prompt_generation.danbooru.resolve_tag_candidates",
         resolve_candidates,
     )
     result = await resolve_identities_node(
@@ -1059,7 +1059,7 @@ class WorkflowModel(BaseChatModel):
 @pytest.mark.asyncio
 async def test_workflow_replaces_character_across_turns_without_reparsing_visuals(monkeypatch):
     monkeypatch.setattr(
-        "app.services.ai_provider.ai_provider.get_model",
+        "app.runtime.llm.provider.ai_provider.get_model",
         lambda **kwargs: WorkflowModel(),
     )
 
@@ -1078,7 +1078,7 @@ async def test_workflow_replaces_character_across_turns_without_reparsing_visual
         ]
 
     monkeypatch.setattr(
-        "app.agents.prompt_generation.danbooru.resolve_tag_candidates",
+        "app.domains.prompt_generation.danbooru.resolve_tag_candidates",
         resolve_candidates,
     )
     agents = runtime_agents()
@@ -1529,7 +1529,7 @@ async def test_identity_resolver_ignores_animals_and_roles(monkeypatch):
         raise AssertionError("identity model should not run for non-character roles")
 
     monkeypatch.setattr(
-        "app.services.ai_provider.ai_provider.get_model", should_not_create_model
+        "app.runtime.llm.provider.ai_provider.get_model", should_not_create_model
     )
     document = normalize_scene_document(
         {
@@ -1589,11 +1589,11 @@ async def test_identity_resolver_only_recomputes_changed_participants(monkeypatc
         ]
 
     monkeypatch.setattr(
-        "app.services.ai_provider.ai_provider.get_model",
+        "app.runtime.llm.provider.ai_provider.get_model",
         lambda **kwargs: OneIdentityModel(),
     )
     monkeypatch.setattr(
-        "app.agents.prompt_generation.danbooru.resolve_tag_candidates",
+        "app.domains.prompt_generation.danbooru.resolve_tag_candidates",
         resolve_candidates,
     )
     document = normalize_scene_document(
@@ -1716,7 +1716,7 @@ async def test_visual_resolver_normalizes_cjk_phrases_before_prompt_ir(monkeypat
 
     model = NormalizingModel()
     monkeypatch.setattr(
-        "app.services.ai_provider.ai_provider.get_model", lambda **kwargs: model
+        "app.runtime.llm.provider.ai_provider.get_model", lambda **kwargs: model
     )
     result = await resolve_visual_semantics_node(
         {
@@ -1762,7 +1762,7 @@ async def test_visual_resolver_preserves_unaffected_terms_during_local_edit(monk
             )
 
     monkeypatch.setattr(
-        "app.services.ai_provider.ai_provider.get_model",
+        "app.runtime.llm.provider.ai_provider.get_model",
         lambda **kwargs: LocalEditModel(),
     )
     result = await resolve_visual_semantics_node(

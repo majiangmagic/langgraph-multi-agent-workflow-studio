@@ -1,6 +1,6 @@
 """Graph factory for the official supervisor agent."""
 
-from app.agents.declarative import compile_agent_definition
+from app.runtime.langgraph.agent_definition import compile_agent_definition
 from app.agents.official_supervisor.spec import (
     AGENT_DEFINITION,
     OFFICIAL_SUPERVISOR_AGENT_NAME,

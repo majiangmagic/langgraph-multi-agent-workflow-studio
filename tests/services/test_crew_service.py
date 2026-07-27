@@ -7,9 +7,9 @@ from uuid import UUID
 import asyncio
 from typing import List, Dict, Any
 
-from app.services.crew_service import CrewService
-from app.schemas.crew import CrewCreate, CrewUpdate, CrewResponse
-from app.models.crew import Crew
+from app.application.crew_service import CrewService
+from app.api.schemas.crew import CrewCreate, CrewUpdate, CrewResponse
+from app.infrastructure.database.models.crew import Crew
 
 
 @pytest.mark.asyncio

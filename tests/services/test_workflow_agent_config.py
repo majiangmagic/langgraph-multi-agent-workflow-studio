@@ -7,21 +7,21 @@ from langgraph.graph import END, StateGraph
 from langgraph.store.memory import InMemoryStore
 
 from app.agents.official_supervisor.official_runtime import OfficialSupervisorRuntime
-from app.core.langgraph.workflows.adapters.agent import (
+from app.runtime.langgraph.adapters.agent import (
     create_agent_node,
     create_pipeline_context_extension,
     trim_agent_memory,
 )
-from app.core.langgraph.workflows.adapters.supervisor import create_supervisor_extension
-from app.core.langgraph.workflows.declarative import (
+from app.runtime.langgraph.adapters.supervisor import create_supervisor_extension
+from app.runtime.langgraph.declarative import (
     RESET_NODE_STATE_KEY,
     merge_node_states,
 )
-from app.core.langgraph.workflows.supervisor_simple.state import (
+from app.workflows.supervisor_simple.state import (
     SupervisorSimpleState,
     build_initial_state,
 )
-from app.services.workflow_service import WorkflowService
+from app.application.workflow_service import WorkflowService
 
 
 def test_workflow_runtime_uses_local_agent_manifest():

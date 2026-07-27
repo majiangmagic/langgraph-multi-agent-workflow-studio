@@ -13,21 +13,21 @@ from langgraph.types import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 
-from app.db.base import async_session_factory, get_db
-from app.core.config import settings
-from app.models.conversation import MessageRole, MessageStatus
-from app.models.activity_log import ActivityType
-from app.core.langgraph.checkpoint import get_checkpointer
-from app.core.langgraph.events import (
+from app.infrastructure.database.session import async_session_factory, get_db
+from app.config import settings
+from app.infrastructure.database.models.conversation import MessageRole, MessageStatus
+from app.infrastructure.database.models.activity_log import ActivityType
+from app.runtime.langgraph.checkpoint import get_checkpointer
+from app.runtime.langgraph.events import (
     WorkflowEventSink,
     reset_event_sink,
     set_event_sink,
 )
-from app.core.langgraph.workflows.registry import workflow_registry
-from app.services.conversation_service import ConversationService, ActivityLogService
-from app.services.crew_service import CrewService
-from app.services.workflow_service import WorkflowService
-from app.schemas.conversation import (
+from app.workflows.registry import workflow_registry
+from app.application.conversation_service import ConversationService, ActivityLogService
+from app.application.crew_service import CrewService
+from app.application.workflow_service import WorkflowService
+from app.api.schemas.conversation import (
     ConversationCreate, 
     ConversationResponse, 
     ConversationUpdate,

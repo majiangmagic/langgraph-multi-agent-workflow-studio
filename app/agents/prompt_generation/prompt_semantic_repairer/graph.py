@@ -1,6 +1,6 @@
 """Graph factory for the prompt_semantic_repairer agent."""
 
-from app.agents.declarative import compile_agent_definition
+from app.runtime.langgraph.agent_definition import compile_agent_definition
 from app.agents.prompt_generation.prompt_semantic_repairer.spec import AGENT_DEFINITION, PROMPT_SEMANTIC_REPAIRER_AGENT_NAME
 from app.agents.registry import agent_registry
 

@@ -75,7 +75,7 @@ import re
 
 
 def _parse_identities(text: str) -> list[Dict[str, Any]]:
-    from app.agents.prompt_generation.models import IdentityExtraction
+    from app.domains.prompt_generation.models import IdentityExtraction
 
     match = re.search(r"\{[\s\S]*\}", text.strip())
     parsed = IdentityExtraction.model_validate_json(match.group(0) if match else text)
@@ -83,7 +83,7 @@ def _parse_identities(text: str) -> list[Dict[str, Any]]:
 
 
 def _parse_decisions(text: str) -> list[Dict[str, Any]]:
-    from app.agents.prompt_generation.models import IdentityAdjudication
+    from app.domains.prompt_generation.models import IdentityAdjudication
 
     match = re.search(r"\{[\s\S]*\}", text.strip())
     parsed = IdentityAdjudication.model_validate_json(match.group(0) if match else text)
@@ -102,8 +102,8 @@ async def resolve_identities_node(
 
     from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-    from app.agents.prompt_generation.danbooru import resolve_tag_candidates, unique_text
-    from app.services.ai_provider import AIProvider, ai_provider
+    from app.domains.prompt_generation.danbooru import resolve_tag_candidates, unique_text
+    from app.runtime.llm.provider import AIProvider, ai_provider
 
     state = {**state, **dict(state.get("prepared_context") or {})}
     document = state.get("identity_context") or {}

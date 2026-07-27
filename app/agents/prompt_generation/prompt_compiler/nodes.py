@@ -453,7 +453,7 @@ def compile_prompt_node(
             "entries": constraint_entries,
         },
     }
-    from app.agents.prompt_generation.models import PromptIR
+    from app.domains.prompt_generation.models import PromptIR
 
     resolved_ir = PromptIR.model_validate(resolved_ir).model_dump(mode="python")
     return {
@@ -481,7 +481,7 @@ def validate_prompt_ir_node(
 ) -> Dict[str, Any]:
     """Validate and normalize the compiled Prompt IR."""
 
-    from app.agents.prompt_generation.models import PromptIR
+    from app.domains.prompt_generation.models import PromptIR
 
     prompt_ir = PromptIR.model_validate(state.get("resolved_prompt_ir") or {})
     return {"resolved_prompt_ir": prompt_ir.model_dump(mode="python")}

@@ -1,6 +1,6 @@
 """Graph factory for the prompt_target_renderer agent."""
 
-from app.agents.declarative import compile_agent_definition
+from app.runtime.langgraph.agent_definition import compile_agent_definition
 from app.agents.prompt_generation.prompt_target_renderer.spec import AGENT_DEFINITION, PROMPT_TARGET_RENDERER_AGENT_NAME
 from app.agents.registry import agent_registry
 

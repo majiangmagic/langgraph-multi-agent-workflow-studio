@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKFLOWS_DIR = ROOT / "app" / "core" / "langgraph" / "workflows"
+WORKFLOWS_DIR = ROOT / "app" / "workflows"
 
 
 @dataclass(frozen=True)
@@ -423,7 +423,7 @@ def render_init(workflow: WorkflowDsl) -> str:
     factory_name = f"create_{workflow.name}_graph"
     return f'''"""Public API for the {workflow.name} workflow."""
 
-from app.core.langgraph.workflows.{workflow.name}.state import (
+from app.workflows.{workflow.name}.state import (
     {workflow.state_alias},
     build_initial_state,
 )
@@ -431,7 +431,7 @@ from app.core.langgraph.workflows.{workflow.name}.state import (
 
 def __getattr__(name: str):
     if name == "{factory_name}":
-        from app.core.langgraph.workflows.{workflow.name}.graph import {factory_name}
+        from app.workflows.{workflow.name}.graph import {factory_name}
 
         return {factory_name}
     raise AttributeError(name)
@@ -515,14 +515,14 @@ def render_graph(workflow: WorkflowDsl) -> str:
                 else ""
             ),
             (
-                "from app.core.langgraph.workflows.adapters.routing "
+                "from app.runtime.langgraph.adapters.routing "
                 "import create_state_condition_router"
                 if binary_edges
                 else ""
             ),
-            "from app.core.langgraph.checkpoint import get_checkpointer",
-            "from app.core.langgraph.store import get_store",
-            "from app.core.langgraph.workflows.adapters.agent import create_agent_node",
+            "from app.runtime.langgraph.checkpoint import get_checkpointer",
+            "from app.runtime.langgraph.store import get_store",
+            "from app.runtime.langgraph.adapters.agent import create_agent_node",
         ]
         if part
     )
@@ -532,8 +532,8 @@ from typing import Any, Dict, List
 
 {agent_imports}
 {imports}
-from app.core.langgraph.workflows.registry import workflow_registry
-from app.core.langgraph.workflows.{workflow.name}.state import (
+from app.workflows.registry import workflow_registry
+from app.workflows.{workflow.name}.state import (
     {workflow.state_alias},
     build_initial_state,
 )
@@ -724,19 +724,19 @@ def extension_imports(workflow: WorkflowDsl) -> tuple[str, Dict[str, str]]:
             continue
         if node.extension == "supervisor":
             imports.append(
-                "from app.core.langgraph.workflows.adapters.supervisor "
+                "from app.runtime.langgraph.adapters.supervisor "
                 "import create_supervisor_extension"
             )
             mapping[node.name] = "create_supervisor_extension"
         elif node.extension == "supervisor_planner":
             imports.append(
-                "from app.core.langgraph.workflows.adapters.supervisor "
+                "from app.runtime.langgraph.adapters.supervisor "
                 "import create_supervisor_planner_extension"
             )
             mapping[node.name] = "create_supervisor_planner_extension"
         elif node.extension == "pipeline_context":
             imports.append(
-                "from app.core.langgraph.workflows.adapters.agent "
+                "from app.runtime.langgraph.adapters.agent "
                 "import create_pipeline_context_extension"
             )
             mapping[node.name] = "create_pipeline_context_extension"
@@ -834,7 +834,7 @@ from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import BaseMessage
 
-from app.core.langgraph.workflows.declarative import (
+from app.runtime.langgraph.declarative import (
     WorkflowState,
     build_workflow_initial_state,
     merge_node_states,
@@ -900,13 +900,19 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        workflow = parse_workflow_dsl(load_dsl(args.dsl))
+        data = load_dsl(args.dsl)
+        workflow = parse_workflow_dsl(data)
         write_workflow(workflow)
+        definition_path = WORKFLOWS_DIR / workflow.name / "workflow.dsl.json"
+        definition_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     except Exception as exc:
         print(f"generate_workflow failed: {exc}", file=sys.stderr)
         return 1
 
-    print(f"Generated workflow skeleton: app/core/langgraph/workflows/{workflow.name}")
+    print(f"Generated workflow skeleton: app/workflows/{workflow.name}")
     return 0
 
 

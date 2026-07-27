@@ -1,6 +1,6 @@
 """Graph factory for the prompt_impact_router agent."""
 
-from app.agents.declarative import compile_agent_definition
+from app.runtime.langgraph.agent_definition import compile_agent_definition
 from app.agents.prompt_generation.prompt_impact_router.spec import AGENT_DEFINITION, PROMPT_IMPACT_ROUTER_AGENT_NAME
 from app.agents.registry import agent_registry
 

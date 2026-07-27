@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from app.services import workflow_service as _workflow_service  # noqa: F401
-from app.services.workflow_export_service import export_workflow
+from app.application import workflow_service as _workflow_service  # noqa: F401
+from app.application.workflow_export_service import export_workflow
 
 
 @pytest.mark.parametrize(
@@ -38,14 +38,16 @@ def test_export_contains_only_standalone_runtime(
         assert f"{root}standalone_workflow/agent_configs.json" in names
         assert f"{root}USAGE.md" in names
         assert not any(f"{root}app/api/" in name for name in names)
-        assert not any(f"{root}app/db/" in name for name in names)
-        assert not any(f"{root}app/models/" in name for name in names)
+        assert not any(f"{root}app/application/" in name for name in names)
+        assert not any(
+            f"{root}app/infrastructure/database/" in name for name in names
+        )
         assert not any(f"{root}frontend/" in name for name in names)
 
         checkpoint = archive.read(
-            f"{root}app/core/langgraph/checkpoint.py"
+            f"{root}app/runtime/langgraph/checkpoint.py"
         ).decode("utf-8")
-        store = archive.read(f"{root}app/core/langgraph/store.py").decode("utf-8")
+        store = archive.read(f"{root}app/runtime/langgraph/store.py").decode("utf-8")
         requirements = archive.read(f"{root}requirements.txt").decode("utf-8")
         usage = archive.read(f"{root}USAGE.md").decode("utf-8")
         runtime_source = archive.read(

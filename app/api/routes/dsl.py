@@ -5,7 +5,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.services.dsl_service import (
+from app.application.dsl_service import (
     generate_dsl,
     list_dsls,
     read_dsl,

@@ -9,8 +9,8 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from langchain_core.messages import AIMessage, HumanMessage
 
 from app.main import app
-from app.models.conversation import MessageRole, MessageStatus
-from app.schemas.conversation import ChatRequest
+from app.infrastructure.database.models.conversation import MessageRole, MessageStatus
+from app.api.schemas.conversation import ChatRequest
 
 client = TestClient(app)
 

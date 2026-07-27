@@ -3,14 +3,15 @@ API routes for storage operations
 """
 from typing import List, Optional
 import uuid
+import json
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import io
 
-from app.db.base import get_db
-from app.services.storage_service import storage_service
-from app.schemas.storage import FileResponse, PresignedUrlResponse
+from app.infrastructure.database.session import get_db
+from app.application.storage_service import storage_service
+from app.api.schemas.storage import FileResponse, PresignedUrlResponse
 
 
 router = APIRouter(prefix="/storage", tags=["storage"])

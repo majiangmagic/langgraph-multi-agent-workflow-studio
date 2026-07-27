@@ -47,7 +47,7 @@ def collect_invariants_node(
 ) -> Dict[str, Any]:
     """Collect the deterministic invariants used by prompt validation."""
 
-    from app.agents.prompt_generation.domain import collect_required_paths
+    from app.domains.prompt_generation.domain import collect_required_paths
 
     context = dict(state.get("prepared_context") or {})
     document = context.get("scene_document") or {}
@@ -100,8 +100,8 @@ def validate_prompt_node(
 
     from langchain_core.messages import AIMessage
 
-    from app.agents.prompt_generation.domain import collect_required_paths, contains_cjk
-    from app.agents.prompt_generation.models import ValidationIssue, ValidationReport
+    from app.domains.prompt_generation.domain import collect_required_paths, contains_cjk
+    from app.domains.prompt_generation.models import ValidationIssue, ValidationReport
 
     state = {**state, **dict(state.get("prepared_context") or {})}
     document = state.get("scene_document") or {}
@@ -269,7 +269,7 @@ def finalize_validation_node(
 ) -> Dict[str, Any]:
     """Validate and normalize the consistency report."""
 
-    from app.agents.prompt_generation.models import ValidationReport
+    from app.domains.prompt_generation.models import ValidationReport
 
     raw_report = dict(state.get("validation_report") or {})
     core_report = {

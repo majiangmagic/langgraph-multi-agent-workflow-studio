@@ -2,7 +2,7 @@
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from app.agents.prompt_generation.prompt_impact_router.nodes import route_impact_node
 from app.agents.prompt_generation.prompt_impact_router.state import PromptImpactRouterState
 

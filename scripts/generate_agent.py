@@ -262,7 +262,7 @@ def render_graph(agent: AgentDsl) -> str:
     import_path = package_import_path(agent)
     return f'''"""Graph factory for the {agent.name} agent."""
 
-from app.agents.declarative import compile_agent_definition
+from app.runtime.langgraph.agent_definition import compile_agent_definition
 from {import_path}.spec import AGENT_DEFINITION, {constant}
 from app.agents.registry import agent_registry
 
@@ -306,7 +306,7 @@ def create_{node.name}_node():
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from {import_path}.nodes import {imports}
 from {import_path}.state import {agent.state_class}
 
@@ -461,8 +461,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        agent = parse_agent_dsl(load_dsl(args.dsl))
+        data = load_dsl(args.dsl)
+        agent = parse_agent_dsl(data)
         write_agent(agent)
+        definition_path = AGENTS_DIR.joinpath(
+            *agent.package_segments, "agent.dsl.json"
+        )
+        definition_path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     except Exception as exc:
         print(f"generate_agent failed: {exc}", file=sys.stderr)
         return 1

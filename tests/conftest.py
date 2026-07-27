@@ -18,11 +18,11 @@ from dotenv import load_dotenv
 load_dotenv(".env.test", override=True)
 os.environ["DATABASE_SCHEMA"] = os.getenv("DATABASE_SCHEMA", "")
 
-from app.db.base import Base, get_db
+from app.infrastructure.database.session import Base, get_db
 from app.main import app
-from app.core.config import settings
-from app.models.crew import Crew, MCPServer, MCPTool
-from app.models.conversation import Conversation, Message, MessageRole, MessageStatus
+from app.config import settings
+from app.infrastructure.database.models.crew import Crew, MCPServer, MCPTool
+from app.infrastructure.database.models.conversation import Conversation, Message, MessageRole, MessageStatus
 
 
 # Use in-memory SQLite for local tests, PostgreSQL for CI

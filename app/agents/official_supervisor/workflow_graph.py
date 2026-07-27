@@ -11,8 +11,8 @@ from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
 from app.agents.official_supervisor.state import SupervisorState
-from app.core.langgraph.events import emit_event
-from app.services.ai_provider import ai_provider
+from app.runtime.langgraph.events import emit_event
+from app.runtime.llm.provider import ai_provider
 
 
 def _json_safe(value: Any) -> Any:

@@ -158,7 +158,7 @@ def _parse_object(text: str) -> Dict[str, Any]:
 def _load_previous_memory(state: SceneDocumentEditorState) -> tuple[Dict[str, Any], Dict[str, Any]]:
     """Read the latest persisted workflow memory without consuming generated Prompt text."""
 
-    from app.agents.prompt_generation.domain import empty_scene_document, normalize_scene_document
+    from app.domains.prompt_generation.domain import empty_scene_document, normalize_scene_document
 
     current = state.get("scene_document")
     previous_ir = state.get("previous_resolved_prompt_ir")
@@ -247,7 +247,7 @@ async def _audit_initial_coverage(
 
     from langchain_core.messages import HumanMessage, SystemMessage
 
-    from app.agents.prompt_generation.models import SceneCoverageAudit
+    from app.domains.prompt_generation.models import SceneCoverageAudit
 
     response = await asyncio.wait_for(
         model.ainvoke(
@@ -349,12 +349,12 @@ async def propose_patch_node(
 
     from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-    from app.agents.prompt_generation.danbooru import ADULT_CONTENT_PROCESSING_PROMPT
-    from app.agents.prompt_generation.domain import (
+    from app.domains.prompt_generation.danbooru import ADULT_CONTENT_PROCESSING_PROMPT
+    from app.domains.prompt_generation.domain import (
         apply_patch_proposal,
         validate_patch_proposal,
     )
-    from app.services.ai_provider import AIProvider, ai_provider
+    from app.runtime.llm.provider import AIProvider, ai_provider
 
     state = {**state, **dict(state.get("prepared_context") or {})}
     document, previous_ir = _load_previous_memory(state)
@@ -525,7 +525,7 @@ def validate_patch_node(
 ) -> Dict[str, Any]:
     """Validate the generated patch against the current document version."""
 
-    from app.agents.prompt_generation.domain import (
+    from app.domains.prompt_generation.domain import (
         normalize_scene_document,
         validate_patch_proposal,
     )

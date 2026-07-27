@@ -6,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.langgraph.workflows.registry import workflow_registry
-from app.db.base import get_db
-from app.schemas.crew import CrewCreate, CrewResponse
-from app.services import workflow_service as _workflow_service  # noqa: F401
-from app.services.crew_service import CrewService
-from app.services.workflow_export_service import export_workflow
-from app.services.workflow_service import DEFAULT_WORKFLOW_TYPE
+from app.workflows.registry import workflow_registry
+from app.infrastructure.database.session import get_db
+from app.api.schemas.crew import CrewCreate, CrewResponse
+from app.application import workflow_service as _workflow_service  # noqa: F401
+from app.application.crew_service import CrewService
+from app.application.workflow_export_service import export_workflow
+from app.application.workflow_service import DEFAULT_WORKFLOW_TYPE
 
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])

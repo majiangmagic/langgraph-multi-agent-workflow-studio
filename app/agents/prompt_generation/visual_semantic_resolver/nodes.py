@@ -82,7 +82,7 @@ def _parse_object(text: str) -> Dict[str, Any]:
 
 
 def _parse_visual_extraction(text: str) -> Dict[str, Any]:
-    from app.agents.prompt_generation.models import VisualExtraction
+    from app.domains.prompt_generation.models import VisualExtraction
 
     match = re.search(r"\{[\s\S]*\}", text.strip())
     parsed = VisualExtraction.model_validate_json(match.group(0) if match else text)
@@ -90,7 +90,7 @@ def _parse_visual_extraction(text: str) -> Dict[str, Any]:
 
 
 def _parse_visual_decisions(text: str) -> list[Dict[str, Any]]:
-    from app.agents.prompt_generation.models import VisualTagAdjudication
+    from app.domains.prompt_generation.models import VisualTagAdjudication
 
     match = re.search(r"\{[\s\S]*\}", text.strip())
     payload = json.loads(match.group(0) if match else text)
@@ -159,7 +159,7 @@ def _merge_incremental_terms(
 def _fallback_relation_terms(document: Dict[str, Any]) -> list[Dict[str, Any]]:
     """Keep explicit facts usable when semantic model output is unavailable."""
 
-    from app.agents.prompt_generation.domain import contains_cjk
+    from app.domains.prompt_generation.domain import contains_cjk
 
     terms = []
     for relation_id, relation in (document.get("relations") or {}).items():
@@ -221,12 +221,12 @@ async def resolve_visual_semantics_node(
 
     from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-    from app.agents.prompt_generation.danbooru import (
+    from app.domains.prompt_generation.danbooru import (
         ADULT_CONTENT_PROCESSING_PROMPT,
         resolve_tag_candidates,
         unique_text,
     )
-    from app.services.ai_provider import AIProvider, ai_provider
+    from app.runtime.llm.provider import AIProvider, ai_provider
 
     state = {**state, **dict(state.get("prepared_context") or {})}
     document = state.get("visual_context") or {}
@@ -319,7 +319,7 @@ suitable for image prompting."""
     except Exception:
         parsed = {}
 
-    from app.agents.prompt_generation.domain import contains_cjk
+    from app.domains.prompt_generation.domain import contains_cjk
 
     phrase_values = [
         *[item.get("fallback_phrase") for item in _facts(parsed.get("atomic_facts"))],

@@ -14,14 +14,14 @@ from pydantic import PrivateAttr
 from app.agents.official_supervisor.workflow_graph import (
     create_workflow_supervisor_graph,
 )
-from app.core.langgraph.workflows.adapters.agent import (
+from app.runtime.langgraph.adapters.agent import (
     create_agent_node,
     create_pipeline_context_extension,
 )
-from app.core.langgraph.workflows.adapters.supervisor import (
+from app.runtime.langgraph.adapters.supervisor import (
     create_supervisor_extension,
 )
-from app.core.langgraph.workflows.declarative import (
+from app.runtime.langgraph.declarative import (
     WorkflowState,
     build_workflow_initial_state,
 )

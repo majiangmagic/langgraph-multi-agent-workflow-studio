@@ -2,7 +2,7 @@
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from app.agents.prompt_generation.prompt_consistency_validator.nodes import prepare_context_node, collect_invariants_node, validate_prompt_node, finalize_validation_node
 from app.agents.prompt_generation.prompt_consistency_validator.state import PromptConsistencyValidatorState
 

@@ -14,12 +14,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-from app.db.base import async_session_factory
+from app.config import settings
+from app.infrastructure.database.session import async_session_factory
 from app.api.routes import conversation, crew, dsl, workflow
-from app.core.langgraph.checkpoint import close_checkpointer, init_checkpointer
-from app.core.langgraph.store import close_store, init_store
-from app.services.conversation_service import ActivityLogService
+from app.runtime.langgraph.checkpoint import close_checkpointer, init_checkpointer
+from app.runtime.langgraph.store import close_store, init_store
+from app.application.conversation_service import ActivityLogService
 
 WEB_DIR = Path(__file__).resolve().parent / "web" / "dist"
 

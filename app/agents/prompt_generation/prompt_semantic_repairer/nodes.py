@@ -71,7 +71,7 @@ import re
 
 
 def _parse_overlay(text: str) -> Dict[str, Any]:
-    from app.agents.prompt_generation.models import RepairOverlay
+    from app.domains.prompt_generation.models import RepairOverlay
 
     match = re.search(r"\{[\s\S]*\}", text.strip())
     parsed = RepairOverlay.model_validate_json(match.group(0) if match else text)
@@ -86,8 +86,8 @@ async def repair_semantics_node(
 
     from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-    from app.agents.prompt_generation.danbooru import ADULT_CONTENT_PROCESSING_PROMPT
-    from app.services.ai_provider import AIProvider, ai_provider
+    from app.domains.prompt_generation.danbooru import ADULT_CONTENT_PROCESSING_PROMPT
+    from app.runtime.llm.provider import AIProvider, ai_provider
 
     state = {**state, **dict(state.get("prepared_context") or {})}
     report = state.get("validation_report") or {}
@@ -183,7 +183,7 @@ def validate_repair_node(
 ) -> Dict[str, Any]:
     """Validate and normalize the bounded repair overlay."""
 
-    from app.agents.prompt_generation.models import RepairOverlay
+    from app.domains.prompt_generation.models import RepairOverlay
 
     overlay = RepairOverlay.model_validate(state.get("repair_overlay") or {})
     return {

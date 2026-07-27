@@ -1,6 +1,6 @@
 """Graph factory for the visual_semantic_resolver agent."""
 
-from app.agents.declarative import compile_agent_definition
+from app.runtime.langgraph.agent_definition import compile_agent_definition
 from app.agents.prompt_generation.visual_semantic_resolver.spec import AGENT_DEFINITION, VISUAL_SEMANTIC_RESOLVER_AGENT_NAME
 from app.agents.registry import agent_registry
 

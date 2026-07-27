@@ -2,7 +2,7 @@
 
 from langgraph.graph import END
 
-from app.agents.declarative import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
+from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
 from app.agents.prompt_generation.character_identity_resolver.nodes import prepare_context_node, collect_identities_node, resolve_identities_node, validate_identity_result_node
 from app.agents.prompt_generation.character_identity_resolver.state import CharacterIdentityResolverState
 

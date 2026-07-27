@@ -1,6 +1,6 @@
 """Graph factory for the character_identity_resolver agent."""
 
-from app.agents.declarative import compile_agent_definition
+from app.runtime.langgraph.agent_definition import compile_agent_definition
 from app.agents.prompt_generation.character_identity_resolver.spec import AGENT_DEFINITION, CHARACTER_IDENTITY_RESOLVER_AGENT_NAME
 from app.agents.registry import agent_registry
 

@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import dsl_service
+from app.application import dsl_service
 
 
 client = TestClient(app)
@@ -24,7 +24,10 @@ def agent_document(name: str = "test_designer_agent") -> dict:
 
 
 def test_validate_and_save_agent_dsl(tmp_path: Path, monkeypatch):
-    monkeypatch.setitem(dsl_service.DSL_DIRS, "agent", tmp_path)
+    agents_dir = tmp_path / "agents"
+    examples_dir = tmp_path / "examples"
+    monkeypatch.setattr(dsl_service, "AGENTS_DIR", agents_dir)
+    monkeypatch.setitem(dsl_service.DSL_DIRS, "agent", examples_dir)
     document = agent_document()
 
     validate_response = client.post("/api/dsl/agent/validate", json={"data": document})
@@ -36,15 +39,21 @@ def test_validate_and_save_agent_dsl(tmp_path: Path, monkeypatch):
         json={"data": document},
     )
     assert save_response.status_code == 200
-    assert (tmp_path / "test_designer_agent.json").exists()
+    dsl_path = agents_dir / "test_designer_agent" / "agent.dsl.json"
+    assert dsl_path.exists()
+    assert save_response.json()["path"].endswith(
+        "agents/test_designer_agent/agent.dsl.json"
+    )
 
     list_response = client.get("/api/dsl/agent")
     assert list_response.status_code == 200
     assert list_response.json()[0]["display_name"] == "测试 Agent"
+    assert list_response.json()[0]["generated"] is True
 
 
 def test_dsl_name_cannot_escape_examples_directory(tmp_path: Path, monkeypatch):
-    monkeypatch.setitem(dsl_service.DSL_DIRS, "agent", tmp_path)
+    monkeypatch.setattr(dsl_service, "AGENTS_DIR", tmp_path / "agents")
+    monkeypatch.setitem(dsl_service.DSL_DIRS, "agent", tmp_path / "examples")
     response = client.put(
         "/api/dsl/agent/..%2Foutside",
         json={"data": agent_document("outside")},

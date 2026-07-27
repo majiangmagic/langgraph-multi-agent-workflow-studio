@@ -9,8 +9,8 @@ from langgraph.graph import END, MessagesState, StateGraph
 from langgraph_supervisor import create_supervisor
 
 from app.agents.official_supervisor.state import DelegatedAgentState, SupervisorState
-from app.core.langgraph.events import emit_event
-from app.services.ai_provider import ai_provider
+from app.runtime.langgraph.events import emit_event
+from app.runtime.llm.provider import ai_provider
 
 
 DEFAULT_SUPERVISOR_PROMPT = (
