@@ -260,17 +260,43 @@ __all__ = [
 def render_graph(agent: AgentDsl) -> str:
     constant = f"{agent.name.upper()}_AGENT_NAME"
     import_path = package_import_path(agent)
-    return f'''"""Graph factory for the {agent.name} agent."""
+    node_imports = "\n".join(
+        f"from {import_path}.nodes import {class_name(node.name)}"
+        for node in agent.nodes
+    )
+    node_calls = "\n".join(
+        f'        workflow.add_node("{node.name}", {class_name(node.name)}())'
+        for node in agent.nodes
+    )
+    edge_calls = "\n".join(
+        f'        workflow.add_edge("{edge.source}", '
+        f'{"END" if edge.target == "END" else repr(edge.target)})'
+        for edge in agent.edges
+    )
+    return f'''"""Native LangGraph graph for the {agent.name} agent."""
 
-from app.runtime.langgraph.agent_definition import compile_agent_definition
-from {import_path}.spec import AGENT_DEFINITION, {constant}
+from langgraph.graph import END, StateGraph
+
+from {import_path}.state import {agent.state_class}
+{node_imports}
 from app.agents.registry import agent_registry
+
+
+class {pascal_case(agent.name)}Graph:
+    """Object-oriented graph builder using native LangGraph operations."""
+
+    def build_graph(self):
+        workflow = StateGraph({agent.state_class})
+{node_calls}
+{edge_calls}
+        workflow.set_entry_point("{agent.entrypoint}")
+        return workflow.compile()
 
 
 def create_graph():
     """Create the {agent.name} agent graph."""
 
-    return compile_agent_definition(AGENT_DEFINITION)
+    return {pascal_case(agent.name)}Graph().build_graph()
 
 
 agent_registry.register({constant}, create_graph)
@@ -279,53 +305,22 @@ agent_registry.register({constant}, create_graph)
 
 def render_spec(agent: AgentDsl, handler_names: Dict[str, str]) -> str:
     constant = f"{agent.name.upper()}_AGENT_NAME"
-    node_constant = f"{agent.name.upper()}_ENTRYPOINT"
     import_path = package_import_path(agent)
-    imports = ", ".join(handler_names[node.name] for node in agent.nodes)
     node_factories = "\n".join(
         f'''
 def create_{node.name}_node():
     """Create the {node.name} node callable."""
 
-    return {handler_names[node.name]}
+    return {handler_names[node.name]}()
 '''
         for node in agent.nodes
     )
-    node_specs = "\n".join(
-        f'''        AgentNodeSpec(
-            name="{node.name}",
-            factory=create_{node.name}_node,
-        ),'''
-        for node in agent.nodes
-    )
-    edge_specs = "\n".join(
-        f'''        AgentEdgeSpec(source="{edge.source}", target={"END" if edge.target == "END" else repr(edge.target)}),'''
-        for edge in agent.edges
-    )
-    return f'''"""Declarative spec for the {agent.name} agent."""
+    return f'''"""Node factories for the {agent.name} agent."""
 
-from langgraph.graph import END
-
-from app.runtime.langgraph.agent_definition import AgentDefinition, AgentEdgeSpec, AgentNodeSpec
-from {import_path}.nodes import {imports}
-from {import_path}.state import {agent.state_class}
+from {import_path}.nodes import {", ".join(handler_names[node.name] for node in agent.nodes)}
 
 {constant} = "{agent.name}"
-{node_constant} = "{agent.entrypoint}"
-
 {node_factories}
-
-AGENT_DEFINITION = AgentDefinition(
-    name={constant},
-    state_schema={agent.state_class},
-    entrypoint={node_constant},
-    nodes=[
-{node_specs}
-    ],
-    edges=[
-{edge_specs}
-    ],
-)
 '''
 
 

@@ -6,6 +6,7 @@ import argparse
 import json
 import re
 import sys
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
@@ -503,6 +504,8 @@ def render_graph(workflow: WorkflowDsl) -> str:
             ),
         ]
     )
+    node_calls = textwrap.indent(node_calls, "    ")
+    edge_calls = textwrap.indent(edge_calls, "    ")
     imports = "\n".join(
         part
         for part in [
@@ -542,17 +545,25 @@ WORKFLOW_NAME = "{workflow.name}"
 WORKFLOW_METADATA = {render_workflow_metadata(workflow)}
 
 
-def {factory_name}(
-    crew_id: str,
-    agents: List[Dict[str, Any]],
-):
-    """Create this workflow with native LangGraph primitives."""
+class {pascal_case(workflow.name)}Workflow:
+    """Object-oriented workflow builder using native LangGraph operations."""
 
-    workflow = StateGraph({workflow.state_alias})
+    def __init__(self, crew_id: str, agents: List[Dict[str, Any]]) -> None:
+        self.crew_id = crew_id
+        self.agents = agents
+
+    def build_graph(self):
+        workflow = StateGraph({workflow.state_alias})
 {node_calls}
 {edge_calls}
-    workflow.set_entry_point("{workflow.entrypoint}")
-    return workflow.compile(checkpointer=get_checkpointer(), store=get_store())
+        workflow.set_entry_point("{workflow.entrypoint}")
+        return workflow.compile(checkpointer=get_checkpointer(), store=get_store())
+
+
+def {factory_name}(crew_id: str, agents: List[Dict[str, Any]]):
+    """Compatibility factory used by the workflow registry."""
+
+    return {pascal_case(workflow.name)}Workflow(crew_id, agents).build_graph()
 
 
 workflow_registry.register(
