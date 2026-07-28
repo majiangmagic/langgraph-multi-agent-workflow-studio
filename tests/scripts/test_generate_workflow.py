@@ -383,7 +383,6 @@ def test_generate_workflow_supports_supervisor_conditional_routes(
                         "extension": "supervisor",
                         "config": {
                             "prompt": "Run the declared pipeline.",
-                            "max_retries_per_node": 1,
                         },
                     },
                     "editor": {

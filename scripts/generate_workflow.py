@@ -817,7 +817,6 @@ def render_supervisor_node_call(
         raise ValueError(
             f"routed official supervisor '{node.name}' must use extension 'supervisor'"
         )
-    max_retries = int(node.config.get("max_retries_per_node") or 2)
     return f'''    workflow.add_node(
         {node.name!r},
         create_agent_node(
@@ -826,7 +825,6 @@ def render_supervisor_node_call(
                 node_name={node.name!r},
                 agents=agents,
                 worker_names={worker_names!r},
-                max_retries_per_node={max_retries},
                 allow_finish_workflow={allow_finish_workflow!r},
             ),
             extension=create_supervisor_extension({node.name!r}),

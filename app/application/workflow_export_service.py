@@ -207,8 +207,6 @@ class Settings:
         os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "75")
     )
     short_term_memory_turns: int = int(os.getenv("SHORT_TERM_MEMORY_TURNS", "10"))
-    long_term_memory_enabled: bool = False
-    long_term_memory_limit: int = 0
 
 
 settings = Settings()

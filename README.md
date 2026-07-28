@@ -464,18 +464,6 @@ workflow_inputs   页面/API 传入的结构化参数
 默认窗口为最近 10 轮，可通过 `SHORT_TERM_MEMORY_TURNS` 调整。数据库消息是回溯后
 重建上下文的稳定来源，checkpoint 是运行时状态来源。
 
-### 长期记忆
-
-长期记忆使用 LangGraph PostgreSQL store，namespace 为：
-
-```text
-("memories", user_id)
-```
-
-当前通过 Supervisor extension 接入。只有 Agent state 明确输出 `memory_write` 时才写入，
-不会自动把所有对话永久保存为记忆。可通过 `LONG_TERM_MEMORY_ENABLED` 和
-`LONG_TERM_MEMORY_LIMIT` 控制。
-
 ### 删除与回溯
 
 - 删除会话：删除业务消息并清理对应 checkpoint thread
@@ -660,8 +648,6 @@ JWT_SECRET_KEY="change-me"
 
 ```env
 SHORT_TERM_MEMORY_TURNS=10
-LONG_TERM_MEMORY_ENABLED=true
-LONG_TERM_MEMORY_LIMIT=5
 ACTIVITY_LOG_MAX_ROWS=1000
 LLM_DEFAULT_MODEL="gpt-5.4"
 LLM_SUPERVISOR_MODEL="gpt-5.5"

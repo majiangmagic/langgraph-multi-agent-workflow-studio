@@ -283,8 +283,8 @@ async def test_plain_agent_node_does_not_use_long_term_memory_store():
 
 
 @pytest.mark.asyncio
-async def test_supervisor_extension_reads_and_explicitly_writes_long_term_memory():
-    """Supervisor extension owns long-term memory context and writes."""
+async def test_supervisor_extension_does_not_use_long_term_memory_store():
+    """Supervisor routing should not read or write user long-term memory."""
 
     captured = {}
 
@@ -341,11 +341,8 @@ async def test_supervisor_extension_reads_and_explicitly_writes_long_term_memory
 
     stored = await store.asearch(("memories", "user-1"), limit=10)
 
-    assert captured["memories"] == [
-        {"content": "The user prefers concise explanations."}
-    ]
-    assert any(
-        item.value.get("kind") == "user_preference"
-        and item.value.get("content") == "The user likes direct answers."
-        for item in stored
-    )
+    assert captured["memories"] is None
+    assert len(stored) == 1
+    assert stored[0].value == {
+        "content": "The user prefers concise explanations."
+    }

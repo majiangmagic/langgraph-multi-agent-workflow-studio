@@ -961,14 +961,18 @@ class WorkflowModel(BaseChatModel):
         if "You supervise an explicit LangGraph workflow" in system:
             marker = "Current control state:\n"
             control = json.loads(system.rsplit(marker, 1)[1].strip())
-            runs = control.get("worker_runs") or {}
-            order = [
-                "scene_document_editor",
-                "identity_impact_router",
-                "visual_impact_router",
-                "prompt_compiler",
+            reports = control.get("agent_reports") or {}
+            stage_checkpoints = [
+                ("scene_document_processor", "scene_document_editor"),
+                ("character_identity_resolver", "identity_impact_router"),
+                ("visual_semantic_resolver", "visual_impact_router"),
+                ("prompt_compiler", "prompt_compiler"),
             ]
-            target = next((name for name in order if not runs.get(name)), None)
+            target = next(
+                (target for completed_node, target in stage_checkpoints
+                 if completed_node not in reports),
+                None,
+            )
             if target:
                 return AIMessage(
                     content="",

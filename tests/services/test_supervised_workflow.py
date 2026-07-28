@@ -92,7 +92,7 @@ class SupervisorTestModel(BaseChatModel):
             worker_completed = any(
                 isinstance(message, AIMessage) and message.name == "worker"
                 for message in messages
-            ) or '"worker": 1' in str(messages[0].content)
+            ) or '"worker": {' in str(messages[0].content)
             if worker_completed:
                 response = AIMessage(
                     content="",
