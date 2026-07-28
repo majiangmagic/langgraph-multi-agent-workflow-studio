@@ -42,7 +42,7 @@ SSE 执行事件和 Agent/Workflow DSL 代码生成器。
 
 - 本地 Agent manifest 与 Workflow registry
 - 原生 LangGraph Workflow 和多节点 Agent 子图
-- `langgraph-supervisor` 官方监管者运行时适配
+- 受 Workflow 图约束的监管者路由与真实 Agent 子图调度
 - JSON DSL 生成 Agent/Workflow Python 骨架
 - 浏览器内 Agent/Workflow DSL 可视化设计器
 - 将现有 Workflow 导出为脱离平台和数据库的独立 LangGraph ZIP 包
@@ -122,21 +122,20 @@ Workflow 不需要知道节点的业务语义，只负责节点、连接和运�
 
 ### `supervisor_simple`
 
-最小监管者示例：
+最小监管者结构示例，仅用于展示 Workflow 节点如何引用 Agent 子图：
 
 ```text
 supervisor_simple workflow
   `- node: supervisor
-       `- agent: official_supervisor
-            `- runtime: langgraph-supervisor
+       `- agent: official_supervisor (example only)
 ```
 
-这里的三个名称属于不同层级：
+该示例没有独立运行时，不会创建模拟 Agent，也不会委派 Crew 中的 Agent；直接执行时会明确报错。
+它不是可用的聊天工作流。这里的三个名称属于不同层级：
 
 - `supervisor_simple`：Workflow 名称
 - `supervisor`：Workflow 节点名称
-- `official_supervisor`：可复用的 Agent 实现名称
-
+- `official_supervisor`：非运行的 Agent 结构示例
 ### `prompt_generation_workflow`
 
 面向多轮修改的结构化图像 Prompt 编译链路：
@@ -154,6 +153,8 @@ supervisor_simple workflow
 
 监管者只选择画面、身份、视觉和编译四个阶段入口。阶段内部顺序、校验分支、有限修复循环和
 最终结束均由 LangGraph 边确定性控制，监管者不能直接跳入阶段内部节点或提前结束。
+这里使用 `official_supervisor/workflow_supervisor.py` 生成受约束的监管者子图；监管者只写入
+`next_node`，外层 `StateGraph.add_conditional_edges` 再路由并执行真实 Agent 子图。
 
 `SceneDocument` 是与具体模型无关的画面工程，保存稳定角色 ID、身份、动作、环境、
 复杂关系与正负约束。用户每一轮自然语言先转换成受限 `PatchProposal`，由代码事务执行；

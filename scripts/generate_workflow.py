@@ -512,7 +512,7 @@ def render_graph(workflow: WorkflowDsl) -> str:
             "from langgraph.graph import END, StateGraph",
             extension_import_text,
             (
-                "from app.agents.official_supervisor.graph "
+                "from app.agents.official_supervisor.workflow_supervisor "
                 "import create_workflow_supervisor_graph"
                 if supervisor_nodes
                 else ""

@@ -39,7 +39,7 @@ async def test_create_crew_and_chat_end_to_end(db_session):
             assert crew_response.status_code == 201
             crew_id = crew_response.json()["id"]
 
-            def fake_official_supervisor_invoke(state, config=None):
+            def fake_supervisor_example_call(self, state, config=None):
                 return {
                     **state,
                     "messages": state["messages"]
@@ -48,9 +48,9 @@ async def test_create_crew_and_chat_end_to_end(db_session):
                 }
 
             with patch(
-                "app.agents.official_supervisor.official_runtime."
-                "OfficialSupervisorRuntime.invoke",
-                side_effect=fake_official_supervisor_invoke,
+                "app.agents.official_supervisor.nodes."
+                "SupervisorExampleNode.__call__",
+                new=fake_supervisor_example_call,
             ):
                 chat_response = await client.post(
                     "/api/chat",
@@ -131,7 +131,7 @@ async def test_chat_stream_includes_workflow_node_events(db_session):
             captured_workflow_inputs = {}
             captured_request_context = {}
 
-            def fake_official_supervisor_invoke(state, config=None):
+            def fake_supervisor_example_call(self, state, config=None):
                 captured_workflow_inputs.update(state.get("workflow_inputs") or {})
                 captured_request_context.update(state.get("request_context") or {})
                 return {
@@ -142,9 +142,9 @@ async def test_chat_stream_includes_workflow_node_events(db_session):
                 }
 
             with patch(
-                "app.agents.official_supervisor.official_runtime."
-                "OfficialSupervisorRuntime.invoke",
-                side_effect=fake_official_supervisor_invoke,
+                "app.agents.official_supervisor.nodes."
+                "SupervisorExampleNode.__call__",
+                new=fake_supervisor_example_call,
             ):
                 response = await client.post(
                     f"/api/conversations/{conversation_id}/chat/stream",

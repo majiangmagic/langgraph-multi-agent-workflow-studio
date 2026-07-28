@@ -33,7 +33,6 @@ PACKAGE_NAMES = {
     "langchain_core": "langchain-core",
     "langchain_openai": "langchain-openai",
     "langgraph": "langgraph",
-    "langgraph_supervisor": "langgraph-supervisor",
     "openai": "openai",
     "pydantic": "pydantic",
     "tenacity": "tenacity",

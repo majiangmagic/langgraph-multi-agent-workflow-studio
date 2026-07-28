@@ -6,7 +6,6 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.store.memory import InMemoryStore
 
-from app.agents.official_supervisor.official_runtime import OfficialSupervisorRuntime
 from app.runtime.langgraph.adapters.agent import (
     create_agent_node,
     create_pipeline_context_extension,
@@ -22,9 +21,13 @@ from app.workflows.supervisor_simple.state import (
     build_initial_state,
 )
 from app.application.workflow_service import WorkflowService
+from app.agents.official_supervisor.nodes import (
+    SupervisorExampleNode,
+    SupervisorExampleOnlyError,
+)
 
 
-def test_workflow_runtime_uses_local_agent_manifest():
+def test_workflow_uses_local_supervisor_example_manifest():
     crew = SimpleNamespace(
         id="crew-1",
         workflow_type="supervisor_simple",
@@ -36,8 +39,17 @@ def test_workflow_runtime_uses_local_agent_manifest():
     assert workflow is not None
     assert len(local_agents) == 1
     assert local_agents[0]["name"] == "official_supervisor"
-    assert local_agents[0]["system_prompt"]
-    assert local_agents[0]["model"]
+    assert local_agents[0]["display_name"] == "Official Supervisor Example"
+    assert "Non-runnable Agent skeleton" in local_agents[0]["description"]
+    assert local_agents[0]["system_prompt"] is None
+    assert local_agents[0]["model"] is None
+
+
+def test_official_supervisor_example_fails_fast():
+    node = SupervisorExampleNode()
+
+    with pytest.raises(SupervisorExampleOnlyError, match="example Agent skeleton"):
+        node({})
 
 
 def test_missing_workflow_cannot_run():
@@ -88,77 +100,6 @@ def test_delegated_agent_prompt_is_preserved_in_workflow_state():
     assert writer_state["model"] == "worker-model"
     assert writer_state["temperature"] == 0.4
     assert writer_state["tools"] == [{"name": "draft"}]
-
-
-def test_official_supervisor_prompt_includes_worker_instructions():
-    """The official supervisor should see enough worker config to delegate well."""
-
-    runtime = OfficialSupervisorRuntime(
-        system_prompt="You coordinate this crew.",
-        model_name="supervisor-model",
-    )
-    state = build_initial_state(
-        crew_id="crew-1",
-        agents=[
-            {
-                "id": "supervisor-1",
-                "name": "official_supervisor",
-                "system_prompt": "You coordinate this crew.",
-            },
-            {
-                "id": "writer-1",
-                "name": "Writer",
-                "description": "Creates concise user-facing summaries.",
-                "system_prompt": "You write concise responses.",
-                "model": "worker-model",
-                "temperature": 0.4,
-                "tools": [],
-            }
-        ],
-    )
-
-    prompt = runtime._build_prompt(
-        {"writer": "writer"},
-        {
-            **state["nodes"]["supervisor"],
-            "agents": {
-                "writer": state["agents"]["writer"],
-            },
-        },
-    )
-
-    assert "You coordinate this crew." in prompt
-    assert "description=Creates concise user-facing summaries." in prompt
-    assert "instructions=You write concise responses." in prompt
-    assert "model=worker-model" in prompt
-
-
-def test_official_supervisor_prompt_includes_long_term_memories():
-    """Supervisor prompt should expose memories attached from the store."""
-
-    runtime = OfficialSupervisorRuntime(system_prompt="You coordinate this crew.")
-
-    prompt = runtime._build_prompt(
-        {},
-        {
-            **build_initial_state(crew_id="crew-1", agents=[
-                {
-                    "id": "supervisor-1",
-                    "name": "official_supervisor",
-                    "system_prompt": "You coordinate this crew.",
-                }
-            ])["nodes"]["supervisor"],
-            "agents": {},
-            "long_term_memories": [
-                {
-                    "content": "The user prefers concise engineering explanations.",
-                }
-            ],
-        },
-    )
-
-    assert "Long-term memories:" in prompt
-    assert "The user prefers concise engineering explanations." in prompt
 
 
 def test_checkpointed_supervisor_messages_survive_new_turn_input():

@@ -11,7 +11,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 from pydantic import PrivateAttr
 
-from app.agents.official_supervisor.workflow_graph import (
+from app.agents.official_supervisor.workflow_supervisor import (
     create_workflow_supervisor_graph,
 )
 from app.runtime.langgraph.adapters.agent import (
@@ -191,7 +191,7 @@ def supervised_workflow(model, *, checkpointer=None):
 def test_supervisor_can_disable_finish_tool(monkeypatch):
     model = SupervisorTestModel()
     monkeypatch.setattr(
-        "app.agents.official_supervisor.workflow_graph.ai_provider.get_model",
+        "app.agents.official_supervisor.workflow_supervisor.ai_provider.get_model",
         lambda **kwargs: model,
     )
 
@@ -210,7 +210,7 @@ def test_supervisor_can_disable_finish_tool(monkeypatch):
 async def test_official_supervisor_runs_real_worker_and_merges_state(monkeypatch):
     model = SupervisorTestModel(mode="delegate")
     monkeypatch.setattr(
-        "app.agents.official_supervisor.workflow_graph.ai_provider.get_model",
+        "app.agents.official_supervisor.workflow_supervisor.ai_provider.get_model",
         lambda **kwargs: model,
     )
     workflow = supervised_workflow(model)
@@ -232,7 +232,7 @@ async def test_supervisor_interrupt_resumes_same_checkpoint(monkeypatch):
     model = SupervisorTestModel(mode="interrupt")
     checkpointer = MemorySaver()
     monkeypatch.setattr(
-        "app.agents.official_supervisor.workflow_graph.ai_provider.get_model",
+        "app.agents.official_supervisor.workflow_supervisor.ai_provider.get_model",
         lambda **kwargs: model,
     )
     workflow = supervised_workflow(model, checkpointer=checkpointer)

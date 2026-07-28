@@ -17,7 +17,7 @@ from app.application.workflow_export_service import export_workflow
 @pytest.mark.parametrize(
     ("workflow_name", "expected_agent_path"),
     [
-        ("supervisor_simple", "app/agents/official_supervisor/workflow_graph.py"),
+        ("supervisor_simple", "app/agents/official_supervisor/nodes.py"),
         (
             "prompt_generation_workflow",
             "app/agents/prompt_generation/prompt_target_renderer/nodes.py",
