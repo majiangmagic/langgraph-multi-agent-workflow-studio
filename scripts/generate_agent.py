@@ -1,4 +1,4 @@
-"""Generate agent skeleton code from a JSON/YAML DSL."""
+﻿"""Generate agent skeleton code from a JSON/YAML DSL."""
 
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ NODE_BLOCK_RE = re.compile(
     r"(?P<block># <agent-node name=\"(?P<name>[^\"]+)\">.*?# </agent-node>)",
     re.DOTALL,
 )
-DEF_RE = re.compile(r"def\s+(?P<name>[a-zA-Z_][a-zA-Z0-9_]*)\s*\(")
 
 
 @dataclass(frozen=True)
@@ -61,6 +60,14 @@ def pascal_case(value: str) -> str:
     """Convert a DSL identifier to a Python class name fragment."""
 
     return "".join(part.capitalize() for part in snake_case(value).split("_"))
+
+
+def node_class_name(node: NodeDsl | str) -> str:
+    """Return the readable class name generated for one workflow node."""
+
+    name = node.name if isinstance(node, NodeDsl) else str(node)
+    name = name.removesuffix("_node")
+    return f"{pascal_case(name)}Node"
 
 
 def parse_package_segments(raw_package: Any, agent_name: str) -> List[str]:
@@ -206,16 +213,6 @@ def read_existing_node_blocks(nodes_path: Path) -> Dict[str, str]:
     }
 
 
-def block_handler_name(block: str, expected_handler: str) -> Optional[str]:
-    """Return the DSL handler when it still exists in a preserved node block."""
-
-    pattern = re.compile(
-        rf"^(?:async\s+)?def\s+{re.escape(expected_handler)}\s*\(",
-        re.MULTILINE,
-    )
-    return expected_handler if pattern.search(block) else None
-
-
 def python_type(field: Dict[str, Any]) -> str:
     """Map simple DSL field types to Python annotations."""
 
@@ -261,11 +258,11 @@ def render_graph(agent: AgentDsl) -> str:
     constant = f"{agent.name.upper()}_AGENT_NAME"
     import_path = package_import_path(agent)
     node_imports = "\n".join(
-        f"from {import_path}.nodes import {class_name(node.name)}"
+        f"from {import_path}.nodes import {node_class_name(node)}"
         for node in agent.nodes
     )
     node_calls = "\n".join(
-        f'        workflow.add_node("{node.name}", {class_name(node.name)}())'
+        f'        workflow.add_node("{node.name}", {node_class_name(node)}())'
         for node in agent.nodes
     )
     edge_calls = "\n".join(
@@ -303,34 +300,13 @@ agent_registry.register({constant}, create_graph)
 '''
 
 
-def render_spec(agent: AgentDsl, handler_names: Dict[str, str]) -> str:
-    constant = f"{agent.name.upper()}_AGENT_NAME"
-    import_path = package_import_path(agent)
-    node_factories = "\n".join(
-        f'''
-def create_{node.name}_node():
-    """Create the {node.name} node callable."""
-
-    return {handler_names[node.name]}()
-'''
-        for node in agent.nodes
-    )
-    return f'''"""Node factories for the {agent.name} agent."""
-
-from {import_path}.nodes import {", ".join(handler_names[node.name] for node in agent.nodes)}
-
-{constant} = "{agent.name}"
-{node_factories}
-'''
-
-
 def render_state(agent: AgentDsl) -> str:
     extra_fields = "\n".join(
         f"    {name}: {python_type(field)}"
         for name, field in agent.state_fields.items()
     )
     if extra_fields:
-        extra_fields = "\n\n    # 下面是 DSL 声明的业务状态字段。\n" + extra_fields
+        extra_fields = "\n\n    # Additional business fields declared by the DSL.\n" + extra_fields
 
     return f'''"""State schema for the {agent.name} agent."""
 
@@ -350,47 +326,43 @@ class {agent.state_class}(TypedDict):
     temperature: float
     tools: List[Dict[str, Any]]
     messages: List[BaseMessage]
-    # 本轮未经业务拆分的完整用户输入。除入口或意图解析节点外，理论上不应直接使用；
-    # 下游节点应通过 Workflow DSL inputs 接收上游节点产出的结构化业务数据。
+    # Raw user input before business-specific parsing.
+    # Downstream nodes should use structured outputs from earlier nodes.
     user_input: Optional[str]
     workflow_inputs: Dict[str, Any]
-    # 由平台统一注入的请求标识、会话标识和用户标识，不属于用户可配置参数。
+    # Request, session, and user context supplied by the platform.
     request_context: Dict[str, Any]{extra_fields}
 '''
 
 
 def render_new_node_block(agent: AgentDsl, node: NodeDsl) -> str:
-    return f'''# <agent-node name="{node.name}">
-# 中文注意：
-# 1. 节点名 "{node.name}" 是 DSL 的稳定标识，不要随手改名。
-# 2. 只要 DSL 里还保留这个节点名，刷新骨架时会保留本代码块里的业务逻辑。
-# 3. 如果新 DSL 删除了这个节点名，生成器会删除整个代码块，即使里面写过业务代码。
-def {node.handler}(
-    state: {agent.state_class},
-    config: RunnableConfig | None = None,
-) -> Dict[str, Any]:
-    """TODO: 在这里填写节点 "{node.name}" 的业务逻辑。"""
+    """Render one class-based business node block."""
 
-    # prompt/model/temperature 来自本地 Agent manifest 和 Workflow 节点配置，
-    # 由运行时经 Workflow state 注入。
-    # 这里可以读取 state["system_prompt"], state["model"], state["temperature"]。
-    return {{}}
-# </agent-node>'''
+    class_name = node_class_name(node)
+    return (
+        f'# <agent-node name="{node.name}">\n'
+        '# The DSL node name is stable. Keep business logic inside this block.\n'
+        f'# \u8282\u70b9\u540d \"{node.name}\" \u662f DSL \u7684\u7a33\u5b9a\u6807\u8bc6\n'
+        f'class {class_name}:\n'
+        f'    """Handle the {node.name.replace('_', " ")} stage."""\n\n'
+        '    async def __call__(\n'
+        '        self,\n'
+        f'        state: {agent.state_class},\n'
+        '        config: RunnableConfig | None = None,\n'
+        '    ) -> Dict[str, Any]:\n'
+        f'        """Run the {node.name.replace('_', " ")} step."""\n\n'
+        '        return {}\n'
+        '# </agent-node>'
+    )
 
 
-def render_nodes(agent: AgentDsl, existing_blocks: Dict[str, str]) -> tuple[str, Dict[str, str]]:
-    handler_names = {}
+def render_nodes(agent: AgentDsl, existing_blocks: Dict[str, str]) -> str:
+    """Render class-based node implementations and preserve matching business blocks."""
+
     blocks = []
     for node in agent.nodes:
         existing = existing_blocks.get(node.name)
-        if existing:
-            handler_names[node.name] = (
-                block_handler_name(existing, node.handler) or node.handler
-            )
-            blocks.append(existing)
-        else:
-            handler_names[node.name] = node.handler
-            blocks.append(render_new_node_block(agent, node))
+        blocks.append(existing or render_new_node_block(agent, node))
 
     import_path = package_import_path(agent)
     text = f'''"""Business nodes for the {agent.name} agent."""
@@ -401,15 +373,11 @@ from langchain_core.runnables import RunnableConfig
 
 from {import_path}.state import {agent.state_class}
 
-# 本文件由 scripts/generate_agent.py 刷新骨架。
-# 中文注意：
-# - 只在 <agent-node ...> 代码块内部编写业务逻辑。
-# - 节点名是 DSL 的稳定标识；节点名不变，刷新时保留对应代码块。
-# - 新 DSL 删除某个节点名时，对应代码块会被删除，不会因为里面有人写过代码而保留。
+# This file is refreshed by scripts/generate_agent.py.
+# Keep business logic inside the marked node blocks.
 
 ''' + "\n\n\n".join(blocks) + "\n"
-    return text, handler_names
-
+    return text
 
 def write_agent(agent: AgentDsl) -> None:
     """Write generated files for an agent DSL."""
@@ -425,13 +393,10 @@ def write_agent(agent: AgentDsl) -> None:
 
     nodes_path = agent_dir / "nodes.py"
     existing_blocks = read_existing_node_blocks(nodes_path)
-    nodes_text, handler_names = render_nodes(agent, existing_blocks)
+    nodes_text = render_nodes(agent, existing_blocks)
 
     (agent_dir / "__init__.py").write_text(render_init(agent), encoding="utf-8")
     (agent_dir / "graph.py").write_text(render_graph(agent), encoding="utf-8")
-    (agent_dir / "spec.py").write_text(
-        render_spec(agent, handler_names), encoding="utf-8"
-    )
     (agent_dir / "state.py").write_text(render_state(agent), encoding="utf-8")
     nodes_path.write_text(nodes_text, encoding="utf-8")
 

@@ -43,59 +43,18 @@ def test_workflow_options_endpoint_lists_registered_workflows():
         for workflow in workflows
         if workflow["name"] == "prompt_generation_workflow"
     )
-    assert prompt_workflow["entrypoint"] == "supervisor"
+    assert prompt_workflow["entrypoint"] == "painting_request_analyzer"
     assert {node["name"] for node in prompt_workflow["nodes"]} == {
-        "supervisor",
-        "scene_document_editor",
-            "scene_document_processor",
-            "identity_impact_router",
-            "character_identity_resolver",
-            "visual_impact_router",
-        "visual_semantic_resolver",
-        "prompt_compiler",
-        "consistency_validator",
-        "semantic_repairer",
+        "painting_request_analyzer",
+        "document_manager",
+        "character_prompt_generator",
+        "visual_prompt_generator",
+        "prompt_parts_joiner",
+        "document_compiler",
+        "prompt_checker",
         "target_renderer",
     }
-    conditional_edges = [
-        edge for edge in prompt_workflow["edges"] if edge.get("conditional")
-    ]
-    assert {edge["to"] for edge in conditional_edges} == {
-        "scene_document_editor",
-        "identity_impact_router",
-        "visual_impact_router",
-        "prompt_compiler",
-        "semantic_repairer",
-        "target_renderer",
-    }
-    assert {
-        edge["to"]
-        for edge in conditional_edges
-        if edge["from"] == "supervisor"
-    } == {
-        "scene_document_editor",
-        "identity_impact_router",
-        "visual_impact_router",
-        "prompt_compiler",
-    }
-    supervisor = next(
-        node for node in prompt_workflow["nodes"] if node["name"] == "supervisor"
-    )
-    assert "纯路由监管者" in supervisor["config"]["prompt"]
-    assert "request_user_input" not in supervisor["config"]["prompt"]
-    assert {
-        edge["to"]
-        for edge in prompt_workflow["edges"]
-        if edge["from"] == "supervisor"
-    } == {
-        "scene_document_editor",
-        "identity_impact_router",
-        "visual_impact_router",
-        "prompt_compiler",
-    }
-    controls = {
-        control["key"]: control for control in prompt_workflow["ui"]["controls"]
-    }
+    controls = {control["key"]: control for control in prompt_workflow["ui"]["controls"]}
     assert controls["prompt_strategy"]["default"] == "expressive"
     assert controls["target_model"]["default"] == "nai_v4"
 

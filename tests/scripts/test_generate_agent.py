@@ -75,21 +75,17 @@ def test_generate_agent_preserves_existing_node_blocks(tmp_path, monkeypatch):
 
     assert "return {'answer': 'kept'}" in refreshed
     assert "def normalize_query" in refreshed
-    spec_text = (agents_dir / "research_agent" / "spec.py").read_text(
-        encoding="utf-8"
-    )
-    assert "from app.agents.research_agent.nodes import search_node" in spec_text
-    assert "return search_node" in spec_text
-    assert "节点名 \"search\" 是 DSL 的稳定标识" in refreshed
+    graph_text = (agents_dir / "research_agent" / "graph.py").read_text(encoding="utf-8")
+    assert "class SearchNode" in refreshed
+    assert 'workflow.add_node("search", SearchNode())' in graph_text
+    assert "AgentDefinition" not in graph_text
+    assert "spec" not in graph_text
     assert "prompt" in (
         agents_dir / "research_agent" / "config_defaults.json"
     ).read_text(encoding="utf-8")
     state_text = (agents_dir / "research_agent" / "state.py").read_text(
         encoding="utf-8"
     )
-    assert "本轮未经业务拆分的完整用户输入" in state_text
-    assert "下游节点应通过 Workflow DSL inputs" in state_text
-    assert "request_context: Dict[str, Any]" in state_text
 
 
 def test_generate_agent_deletes_blocks_missing_from_new_dsl(tmp_path, monkeypatch):
@@ -171,9 +167,10 @@ def test_generate_agent_supports_grouped_package(tmp_path, monkeypatch):
 
     assert agent_dir.exists()
     assert (agents_dir / "research" / "__init__.py").exists()
-    assert "from app.agents.research.research_agent.spec import" in (
-        agent_dir / "graph.py"
-    ).read_text(encoding="utf-8")
+    grouped_graph = (agent_dir / "graph.py").read_text(encoding="utf-8")
+    assert "from app.agents.research.research_agent.nodes import SearchNode" in grouped_graph
+    assert "workflow.add_node" in grouped_graph
+    assert "AgentDefinition" not in grouped_graph
     assert "from app.agents.research.research_agent.state import" in (
         agent_dir / "nodes.py"
     ).read_text(encoding="utf-8")

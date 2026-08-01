@@ -722,7 +722,6 @@ app/
     prompt_generation/
   runtime/
     langgraph/
-      agent_definition.py
       adapters/
       checkpoint.py
       events.py
