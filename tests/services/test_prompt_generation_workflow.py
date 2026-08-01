@@ -1324,6 +1324,20 @@ def test_user_feedback_constraints_are_persisted_and_compiled():
     assert compiled["constraint_overlay"]["version"] == 1
 
 
+def test_initial_input_falls_back_to_scene_creation_when_model_is_unavailable():
+    user_input = "????????????????"
+    proposal = _fallback_patch(empty_scene_document(), user_input, "request-initial")
+
+    assert proposal["intent"] == "create_scene"
+    assert proposal["clarification"] is None
+    assert proposal["operations"][0]["path"] == "/"
+    assert proposal["operations"][0]["value"]["summary"] == user_input
+    assert proposal["operations"][0]["value"]["requirements"]["required"] == [user_input]
+    document = apply_patch_proposal(empty_scene_document(), proposal)
+    assert document["version"] == 1
+    assert document["summary"] == user_input
+
+
 def test_clear_result_complaint_falls_back_to_safe_emphasis_patch():
     proposal = _fallback_patch(
         sample_document(version=2),
