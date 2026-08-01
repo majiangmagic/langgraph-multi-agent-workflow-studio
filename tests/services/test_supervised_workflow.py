@@ -4,11 +4,9 @@ from typing import Any, Dict, List, Optional, TypedDict
 
 import pytest
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command
 from pydantic import PrivateAttr
 
 from app.agents.official_supervisor.workflow_supervisor import (
@@ -49,8 +47,8 @@ def worker_graph():
 
 
 class SupervisorTestModel(BaseChatModel):
-    mode: str = "delegate"
     _tool_names: List[str] = PrivateAttr(default_factory=list)
+    _system_contents: List[str] = PrivateAttr(default_factory=list)
 
     @property
     def _llm_type(self) -> str:
@@ -61,60 +59,30 @@ class SupervisorTestModel(BaseChatModel):
         return self
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-        if self.mode == "interrupt":
-            resumed = any(isinstance(message, ToolMessage) for message in messages)
-            if resumed:
-                response = AIMessage(
-                    content="",
-                    tool_calls=[
-                        {
-                            "name": "finish_workflow",
-                            "args": {},
-                            "id": "finish-1",
-                        }
-                    ],
-                )
-            else:
-                response = AIMessage(
-                    content="",
-                    tool_calls=[
-                        {
-                            "name": "request_user_input",
-                            "args": {
-                                "question": "请选择镜头方向",
-                                "options": ["正面", "侧面"],
-                            },
-                            "id": "ask-1",
-                        }
-                    ],
-                )
+        self._system_contents.append(str(messages[0].content))
+        worker_completed = '"worker": {' in str(messages[0].content)
+        if worker_completed:
+            response = AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "finish_workflow",
+                        "args": {},
+                        "id": "finish-1",
+                    }
+                ],
+            )
         else:
-            worker_completed = any(
-                isinstance(message, AIMessage) and message.name == "worker"
-                for message in messages
-            ) or '"worker": {' in str(messages[0].content)
-            if worker_completed:
-                response = AIMessage(
-                    content="",
-                    tool_calls=[
-                        {
-                            "name": "finish_workflow",
-                            "args": {},
-                            "id": "finish-1",
-                        }
-                    ],
-                )
-            else:
-                response = AIMessage(
-                    content="",
-                    tool_calls=[
-                        {
-                            "name": "route_to_worker",
-                            "args": {},
-                            "id": "delegate-1",
-                        }
-                    ],
-                )
+            response = AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "route_to_worker",
+                        "args": {},
+                        "id": "delegate-1",
+                    }
+                ],
+            )
         return ChatResult(generations=[ChatGeneration(message=response)])
 
 
@@ -204,11 +172,12 @@ def test_supervisor_can_disable_finish_tool(monkeypatch):
 
     assert "route_to_worker" in model._tool_names
     assert "finish_workflow" not in model._tool_names
+    assert "request_user_input" not in model._tool_names
 
 
 @pytest.mark.asyncio
 async def test_official_supervisor_runs_real_worker_and_merges_state(monkeypatch):
-    model = SupervisorTestModel(mode="delegate")
+    model = SupervisorTestModel()
     monkeypatch.setattr(
         "app.agents.official_supervisor.workflow_supervisor.ai_provider.get_model",
         lambda **kwargs: model,
@@ -225,21 +194,7 @@ async def test_official_supervisor_runs_real_worker_and_merges_state(monkeypatch
         for tool_call in message.tool_calls
     )
     assert "route_to_worker" in model._tool_names
+    assert any('"completed": true' in content for content in model._system_contents)
+    assert all("processed:input" not in content for content in model._system_contents)
 
 
-@pytest.mark.asyncio
-async def test_supervisor_interrupt_resumes_same_checkpoint(monkeypatch):
-    model = SupervisorTestModel(mode="interrupt")
-    checkpointer = MemorySaver()
-    monkeypatch.setattr(
-        "app.agents.official_supervisor.workflow_supervisor.ai_provider.get_model",
-        lambda **kwargs: model,
-    )
-    workflow = supervised_workflow(model, checkpointer=checkpointer)
-    config = {"configurable": {"thread_id": "interrupt-thread"}}
-
-    paused = await workflow.ainvoke(initial_state(), config=config)
-    assert paused["__interrupt__"][0].value["question"] == "请选择镜头方向"
-
-    completed = await workflow.ainvoke(Command(resume="侧面"), config=config)
-    assert completed["nodes"]["supervisor"]["next_node"] == "END"

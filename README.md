@@ -334,8 +334,7 @@ Workflow 节点可通过 `config` 覆盖本地 Agent manifest 的 prompt/model �
 通用 `create_agent_node()` 读取和回写 `nodes[agent_name]`。不需要额外的 orchestration DSL。
 只有 DSL 明确声明从该 Supervisor 到 `END` 的条件边时，监管者才会获得
 `finish_workflow` 工具；否则结束权属于工作流的确定性边。
-监管者可调用 `request_user_input` 暂停执行；Web 页面会显示补充信息对话框，提交后使用同一个
-`conversation_id/thread_id` 从 checkpoint 恢复，而不是创建一轮新的工作流执行。
+监管者只负责选择 DSL 允许的下一节点，不负责业务澄清、检查或用户交互；这些职责由 Worker 或确定性工作流节点承担。
 
 普通工作流仍可继续使用静态边、条件边和有界循环。
 
