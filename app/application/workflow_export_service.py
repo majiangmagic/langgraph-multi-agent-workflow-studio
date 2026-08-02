@@ -207,6 +207,8 @@ class Settings:
         os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "75")
     )
     short_term_memory_turns: int = int(os.getenv("SHORT_TERM_MEMORY_TURNS", "10"))
+    checkpoint_backend: str = os.getenv("CHECKPOINT_BACKEND", "memory").strip().lower()
+    checkpoint_database_url: str = os.getenv("CHECKPOINT_DATABASE_URL", "")
 
 
 settings = Settings()
@@ -214,24 +216,55 @@ settings = Settings()
 
 
 def _standalone_checkpoint() -> str:
-    return '''"""Process-local short-term LangGraph checkpoint."""
+    return '''"""Configurable standalone LangGraph checkpoint."""
+
+from contextlib import ExitStack
+import os
 
 from langgraph.checkpoint.memory import MemorySaver
 
 
-_checkpointer = MemorySaver()
+_backend = os.getenv("CHECKPOINT_BACKEND", "memory").strip().lower()
+_database_url = os.getenv("CHECKPOINT_DATABASE_URL", "").strip()
+_checkpointer = None
+_context = ExitStack()
+
+
+def _build_checkpointer():
+    global _checkpointer
+    if _backend in {"", "memory"}:
+        _checkpointer = MemorySaver()
+        return _checkpointer
+    if _backend != "postgres":
+        raise ValueError(
+            "Unsupported CHECKPOINT_BACKEND: "
+            f"{_backend!r}. Use 'memory' or 'postgres'."
+        )
+    if not _database_url:
+        raise ValueError(
+            "CHECKPOINT_DATABASE_URL is required when CHECKPOINT_BACKEND=postgres"
+        )
+
+    from langgraph.checkpoint.postgres import PostgresSaver
+
+    _checkpointer = _context.enter_context(
+        PostgresSaver.from_conn_string(_database_url)
+    )
+    _checkpointer.setup()
+    return _checkpointer
 
 
 async def init_checkpointer():
-    return _checkpointer
+    return get_checkpointer()
 
 
 async def close_checkpointer() -> None:
-    return None
+    _context.close()
 
 
 def get_checkpointer():
-    return _checkpointer
+    global _checkpointer
+    return _checkpointer if _checkpointer is not None else _build_checkpointer()
 '''
 
 
@@ -755,6 +788,19 @@ LLM_REQUEST_TIMEOUT_SECONDS=75
 变量名称沿用平台兼容协议；`OPENROUTER_BASE_URL` 可以替换为其他兼容服务地址。
 远程模型、模型权重、API Key 和提供商账户不会打包。
 
+## 6. Checkpoint persistence
+
+The exported workflow uses an in-process `MemorySaver` by default. Checkpoints are lost when the process exits.
+
+To enable PostgreSQL-backed checkpoints, install the exported requirements and set these variables in `.env`:
+
+```env
+CHECKPOINT_BACKEND=postgres
+CHECKPOINT_DATABASE_URL=postgresql://user:password@host:5432/workflow
+```
+
+The PostgreSQL checkpoint backend is optional and is not enabled by default. It persists LangGraph checkpoints only; it does not enable long-term memory storage automatically.
+
 ## 6. 包内文件
 
 - `standalone_workflow/runtime.py`：可嵌入的独立运行 API
@@ -772,7 +818,12 @@ def _requirements(external_modules: Iterable[str]) -> str:
         for module in external_modules
         if module not in sys.stdlib_module_names and module != "__future__"
     }
-    packages.update({"langgraph", "langchain-core", "python-dotenv"})
+    packages.update({
+        "langgraph",
+        "langchain-core",
+        "langgraph-checkpoint-postgres",
+        "python-dotenv",
+    })
     lines = []
     for package in sorted(packages, key=str.lower):
         try:
@@ -872,6 +923,10 @@ def export_workflow(workflow_name: str) -> WorkflowExport:
             "LLM_SUPERVISOR_MODEL=gpt-5.5\n"
             "LLM_REQUEST_TIMEOUT_SECONDS=75\n"
             "SHORT_TERM_MEMORY_TURNS=10\n"
+            "# memory (default) or postgres\n"
+            "CHECKPOINT_BACKEND=memory\n"
+            "# Required only when CHECKPOINT_BACKEND=postgres\n"
+            "CHECKPOINT_DATABASE_URL=postgresql://user:password@host:5432/workflow\n"
         ),
     }
     if dsl_path.is_file():

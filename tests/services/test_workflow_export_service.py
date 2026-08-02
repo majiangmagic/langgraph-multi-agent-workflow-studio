@@ -61,7 +61,11 @@ def test_export_contains_only_standalone_runtime(
         )
 
         assert "MemorySaver" in checkpoint
-        assert "Postgres" not in checkpoint
+        assert "PostgresSaver" in checkpoint
+        assert "CHECKPOINT_BACKEND" in checkpoint
+        assert "CHECKPOINT_DATABASE_URL" in checkpoint
+        assert "langgraph-checkpoint-postgres" in requirements
+        assert "CHECKPOINT_BACKEND=postgres" in usage
         assert "return None" in store
         assert "fastapi" not in requirements.lower()
         assert "sqlalchemy" not in requirements.lower()
