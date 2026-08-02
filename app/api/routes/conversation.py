@@ -88,7 +88,17 @@ async def get_short_term_history(db: AsyncSession, conversation_id: uuid.UUID) -
 def extract_workflow_response(final_state: Dict[str, Any]) -> str:
     """Get the last assistant-style response from a completed workflow run."""
 
-    for node_state in reversed(list((final_state.get("nodes") or {}).values())):
+    nodes = final_state.get("nodes") or {}
+
+    # The renderer owns the user-facing answer. Do not return an internal
+    # checker/compiler message such as "Prompt IR consistency check passed."
+    renderer_state = nodes.get("target_renderer") or {}
+    if renderer_state.get("answer"):
+        return str(renderer_state["answer"])
+    if renderer_state.get("formatted_prompt"):
+        return str(renderer_state["formatted_prompt"])
+
+    for node_state in reversed(list(nodes.values())):
         if node_state.get("answer"):
             return str(node_state["answer"])
         for message in reversed(node_state.get("messages", [])):
