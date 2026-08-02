@@ -57,16 +57,6 @@ class LocalDependencyCollector:
         self.external_modules: set[str] = set()
         self._processed: set[Path] = set()
 
-    def add_tree(self, directory: Path) -> None:
-        for path in sorted(directory.rglob("*")):
-            if not path.is_file() or "__pycache__" in path.parts:
-                continue
-            if path.suffix in {".pyc", ".pyo"}:
-                continue
-            self.files.add(path)
-            if path.suffix == ".py":
-                self._scan(path)
-
     def add_module(self, module_name: str) -> None:
         if any(
             module_name == prefix or module_name.startswith(f"{prefix}.")
@@ -898,10 +888,16 @@ def export_workflow(workflow_name: str) -> WorkflowExport:
         raise ValueError(f"Workflow '{workflow_name}' has no initial-state builder")
 
     collector = LocalDependencyCollector()
-    collector.add_tree(workflow_dir)
-    for agent_dir in _agent_directories(metadata):
-        collector.add_tree(agent_dir)
     collector.add_module(factory_module)
+    collector.add_module(spec.state_builder.__module__)
+    for agent_dir in _agent_directories(metadata):
+        graph_path = agent_dir / "graph.py"
+        if not graph_path.is_file():
+            raise ValueError(f"Agent package '{agent_dir}' has no graph.py")
+        graph_module = ".".join(
+            graph_path.relative_to(ROOT).with_suffix("").parts
+        )
+        collector.add_module(graph_module)
 
     agent_configs = resolve_workflow_agent_configs(metadata)
     dsl_path = workflow_dir / "workflow.dsl.json"

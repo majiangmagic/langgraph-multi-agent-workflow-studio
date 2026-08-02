@@ -43,6 +43,8 @@ def test_export_contains_only_standalone_runtime(
             f"{root}app/infrastructure/database/" in name for name in names
         )
         assert not any(f"{root}frontend/" in name for name in names)
+        assert not any(name.endswith("config_defaults.json") for name in names)
+        assert not any(name.endswith("agent.dsl.json") for name in names)
 
         checkpoint = archive.read(
             f"{root}app/runtime/langgraph/checkpoint.py"
