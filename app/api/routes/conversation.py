@@ -46,6 +46,22 @@ chat_router = APIRouter(tags=["chat"])
 logger = logging.getLogger(__name__)
 
 
+def checkpoint_thread_id(workflow_name: str, conversation_id: Any) -> str:
+    """Return a checkpoint thread key isolated by workflow and conversation."""
+
+    return f"{workflow_name}:{conversation_id}"
+
+
+def checkpoint_thread_ids(conversation_id: uuid.UUID) -> list[str]:
+    """Return isolated and legacy keys for a conversation cleanup."""
+
+    workflow_ids = [
+        checkpoint_thread_id(workflow_name, conversation_id)
+        for workflow_name in workflow_registry.names()
+    ]
+    return [*workflow_ids, str(conversation_id)]
+
+
 def db_messages_to_langchain(messages) -> List[BaseMessage]:
     """Convert persisted conversation messages into workflow short-term memory."""
 
@@ -327,7 +343,12 @@ async def build_workflow_for_conversation(
     runtime_agent = node_states.get(entrypoint) or next(
         iter(node_states.values()), {}
     )
-    return workflow, initial_state, runtime_agent
+    return (
+        workflow,
+        initial_state,
+        runtime_agent,
+        checkpoint_thread_id(workflow_type, conversation.id),
+    )
 
 
 async def build_workflow_for_resume(db: AsyncSession, conversation):
@@ -373,7 +394,10 @@ async def build_workflow_for_resume(db: AsyncSession, conversation):
         ),
         local_agents[0] if local_agents else {},
     )
-    return workflow, runtime_agent
+    workflow_type = WorkflowService.get_workflow_type(crew)
+    return workflow, runtime_agent, checkpoint_thread_id(
+        workflow_type, conversation.id
+    )
 
 
 async def run_resume_turn(
@@ -383,7 +407,9 @@ async def run_resume_turn(
 ) -> ChatResponse:
     """Persist a human answer and resume the same LangGraph checkpoint."""
 
-    workflow, runtime_agent = await build_workflow_for_resume(db, conversation)
+    workflow, runtime_agent, workflow_thread_id = await build_workflow_for_resume(
+        db, conversation
+    )
     user_message = await ConversationService.add_message(
         db=db,
         conversation_id=conversation.id,
@@ -394,7 +420,7 @@ async def run_resume_turn(
     )
     final_state = await workflow.ainvoke(
         Command(resume=response),
-        config={"configurable": {"thread_id": str(conversation.id)}},
+        config={"configurable": {"thread_id": workflow_thread_id}},
     )
     response_content, workflow_memory, workflow_result = extract_workflow_outcome(
         final_state
@@ -440,14 +466,19 @@ async def run_chat_turn(
         metadata={"workflow_inputs": workflow_inputs} if workflow_inputs else {},
     )
 
-    workflow, initial_state, runtime_agent = await build_workflow_for_conversation(
+    (
+        workflow,
+        initial_state,
+        runtime_agent,
+        workflow_thread_id,
+    ) = await build_workflow_for_conversation(
         db, conversation, user_message, workflow_inputs
     )
 
     try:
         final_state = await workflow.ainvoke(
             initial_state,
-            config={"configurable": {"thread_id": str(conversation.id)}},
+            config={"configurable": {"thread_id": workflow_thread_id}},
         )
         response_content, workflow_memory, workflow_result = (
             extract_workflow_outcome(final_state)
@@ -616,6 +647,8 @@ async def delete_conversation(
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a conversation"""
+    conversation = await ConversationService.get_conversation(db, conversation_id)
+    checkpoint_ids = checkpoint_thread_ids(conversation_id)
     success = await ConversationService.delete_conversation(db, conversation_id)
     if not success:
         raise HTTPException(
@@ -624,7 +657,8 @@ async def delete_conversation(
         )
     checkpointer = get_checkpointer()
     if checkpointer is not None:
-        await checkpointer.adelete_thread(str(conversation_id))
+        for thread_id in checkpoint_ids:
+            await checkpointer.adelete_thread(thread_id)
     return None
 
 
@@ -635,6 +669,8 @@ async def delete_latest_turn(
 ):
     """Delete the latest user turn and its following assistant/agent messages."""
 
+    conversation = await ConversationService.get_conversation(db, conversation_id)
+    checkpoint_ids = checkpoint_thread_ids(conversation_id)
     deleted_messages = await ConversationService.delete_latest_turn(db, conversation_id)
     if deleted_messages < 0:
         raise HTTPException(
@@ -649,7 +685,8 @@ async def delete_latest_turn(
 
     checkpointer = get_checkpointer()
     if checkpointer is not None:
-        await checkpointer.adelete_thread(str(conversation_id))
+        for thread_id in checkpoint_ids:
+            await checkpointer.adelete_thread(thread_id)
 
     return DeleteTurnResponse(deleted_messages=deleted_messages)
 
@@ -665,6 +702,8 @@ async def rewind_conversation(
 ):
     """Rewind a conversation to immediately before the selected user turn."""
 
+    conversation = await ConversationService.get_conversation(db, conversation_id)
+    checkpoint_ids = checkpoint_thread_ids(conversation_id)
     deleted_messages = await ConversationService.delete_from_message(
         db, conversation_id, message_id
     )
@@ -678,7 +717,8 @@ async def rewind_conversation(
 
     checkpointer = get_checkpointer()
     if checkpointer is not None:
-        await checkpointer.adelete_thread(str(conversation_id))
+        for thread_id in checkpoint_ids:
+            await checkpointer.adelete_thread(thread_id)
     return DeleteTurnResponse(deleted_messages=deleted_messages)
 
 
@@ -825,10 +865,15 @@ async def chat_stream(
 
     if chat_request.resume:
         assert resume_runtime is not None
-        workflow, runtime_agent = resume_runtime
+        workflow, runtime_agent, workflow_thread_id = resume_runtime
         workflow_input: Any = Command(resume=chat_request.message)
     else:
-        workflow, initial_state, runtime_agent = await build_workflow_for_conversation(
+        (
+            workflow,
+            initial_state,
+            runtime_agent,
+            workflow_thread_id,
+        ) = await build_workflow_for_conversation(
             db, conversation, user_message, chat_request.workflow_inputs
         )
         workflow_input = initial_state
@@ -883,7 +928,7 @@ async def chat_stream(
                 )
                 final = await workflow.ainvoke(
                     workflow_input,
-                    config={"configurable": {"thread_id": str(conversation_id)}},
+                    config={"configurable": {"thread_id": workflow_thread_id}},
                 )
                 sink.emit(
                     {

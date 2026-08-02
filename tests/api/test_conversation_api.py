@@ -11,6 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from app.main import app
 from app.infrastructure.database.models.conversation import MessageRole, MessageStatus
 from app.api.schemas.conversation import ChatRequest
+from app.api.routes.conversation import checkpoint_thread_id, checkpoint_thread_ids
 
 client = TestClient(app)
 
@@ -18,6 +19,18 @@ client = TestClient(app)
 mock_conversation_id = uuid.uuid4()
 mock_crew_id = uuid.uuid4()
 mock_user_id = "test-user-123"
+
+
+def test_checkpoint_thread_ids_are_isolated_by_workflow():
+    conversation_id = uuid.uuid4()
+
+    assert checkpoint_thread_id("prompt_generation_workflow", conversation_id) == (
+        f"prompt_generation_workflow:{conversation_id}"
+    )
+    thread_ids = checkpoint_thread_ids(conversation_id)
+    assert "prompt_generation_workflow:" + str(conversation_id) in thread_ids
+    assert "supervisor_simple:" + str(conversation_id) in thread_ids
+    assert str(conversation_id) in thread_ids
 
 
 @pytest.fixture
