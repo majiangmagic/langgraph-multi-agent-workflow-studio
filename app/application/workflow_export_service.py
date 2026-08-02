@@ -945,10 +945,13 @@ def export_workflow(workflow_name: str) -> WorkflowExport:
             "LLM_SUPERVISOR_MODEL=gpt-5.5\n"
             "LLM_REQUEST_TIMEOUT_SECONDS=75\n"
             "SHORT_TERM_MEMORY_TURNS=10\n"
-            "# memory (default) or postgres\n"
+            "# Short-term memory backend: memory (default) or postgres.\n"
+            "# Set this to postgres to persist LangGraph checkpoints in PostgreSQL.\n"
             "CHECKPOINT_BACKEND=memory\n"
-            "# Required only when CHECKPOINT_BACKEND=postgres\n"
-            "CHECKPOINT_DATABASE_URL=postgresql://user:password@host:5432/workflow\n"
+            "# PostgreSQL URL for checkpoints and the optional long-term Store.\n"
+            "# Leave empty to keep the long-term Store disabled.\n"
+            "# When CHECKPOINT_BACKEND=postgres, this value is required.\n"
+            "CHECKPOINT_DATABASE_URL=\n"
         ),
     }
     if dsl_path.is_file():
