@@ -359,8 +359,11 @@ def validate_patch_proposal(value: Any, current_version: int) -> Dict[str, Any]:
     for entity in value.get("detected_entities") or []:
         if not isinstance(entity, dict):
             continue
-        if "source_text" not in entity and "name" in entity:
-            entity["source_text"] = entity.pop("name")
+        if "source_text" not in entity:
+            for alias in ("name", "entity", "text"):
+                if alias in entity:
+                    entity["source_text"] = entity.pop(alias)
+                    break
         if "entity_type" not in entity:
             if "type" in entity:
                 entity["entity_type"] = entity.pop("type")
