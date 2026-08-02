@@ -269,19 +269,41 @@ def get_checkpointer():
 
 
 def _standalone_store() -> str:
-    return '''"""Long-term memory is intentionally disabled in standalone exports."""
+    return '''"""Configurable standalone LangGraph long-term store."""
+
+from contextlib import ExitStack
+import os
+
+_store = None
+_context = ExitStack()
+_database_url = os.getenv("CHECKPOINT_DATABASE_URL", "").strip()
+
+
+def _build_store():
+    global _store
+    if not _database_url:
+        return None
+
+    from langgraph.store.postgres import PostgresStore
+
+    _store = _context.enter_context(
+        PostgresStore.from_conn_string(_database_url)
+    )
+    _store.setup()
+    return _store
 
 
 async def init_store():
-    return None
+    return get_store()
 
 
 async def close_store() -> None:
-    return None
+    _context.close()
 
 
 def get_store():
-    return None
+    global _store
+    return _store if _store is not None else _build_store()
 '''
 
 
@@ -799,7 +821,7 @@ CHECKPOINT_BACKEND=postgres
 CHECKPOINT_DATABASE_URL=postgresql://user:password@host:5432/workflow
 ```
 
-The PostgreSQL checkpoint backend is optional and is not enabled by default. It persists LangGraph checkpoints only; it does not enable long-term memory storage automatically.
+The PostgreSQL backend is optional and is not enabled by default. The same database URL enables both LangGraph checkpoints and the long-term store. If the workflow code never uses the store, no long-term memory records are written.
 
 ## 6. 包内文件
 
